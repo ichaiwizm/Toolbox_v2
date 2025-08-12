@@ -1,0 +1,29 @@
+{
+  "name": "toolbox-api-node",
+  "version": "0.1.0",
+  "description": "Toolbox API Node.js backend",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "test": "node test/test-runner.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "joi": "^17.13.3",
+    "uuid": "^11.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "toolbox",
+    "api",
+    "files",
+    "copy"
+  ],
+  "author": "",
+  "license": "ISC"
+}
