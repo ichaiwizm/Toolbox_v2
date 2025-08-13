@@ -5,6 +5,7 @@ import { getLogger } from './utils/logger.js';
 
 // Importation des routes
 import copyRoutes from './routes/copy.js';
+import sshRoutes from './routes/ssh.js';
 
 const logger = getLogger('toolbox.api');
 
@@ -49,7 +50,8 @@ function createApp() {
             message: 'ToolBox API Node.js est en ligne!',
             version: '0.1.0',
             endpoints: [
-                '/api/v1/copy'
+                '/api/v1/copy',
+                '/api/v1/ssh'
             ]
         });
     });
@@ -65,6 +67,7 @@ function createApp() {
     
     // Enregistrement des routes avec préfixes
     app.use(`${config.API_PREFIX}/copy`, copyRoutes);
+    app.use(`${config.API_PREFIX}/ssh`, sshRoutes);
     
     // Route 404 pour les endpoints non trouvés
     app.use('*', (req, res) => {

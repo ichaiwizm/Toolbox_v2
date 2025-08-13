@@ -1,16 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useContext } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Switch } from "@/components/ui/switch";
+import { Settings } from "lucide-react";
 
 import { useCopyTool, CopyToolProvider, CopyToolContext } from "./CopyToolContext";
 import { 
   CollapsibleSection, 
   HistoryDialog, 
   InputWithButton, 
-  ItemList 
+  ItemList,
+  SSHConfigModal 
 } from "./components";
+import { SSHConnection } from "./types";
 
 /**
  * Panneau de configuration pour l'outil de copie
@@ -64,14 +68,59 @@ function ConfigPanelContent() {
     toggleFavorite
   } = useCopyTool();
   
+  const [isRemoteMode, setIsRemoteMode] = useState(false);
+  const [isSSHModalOpen, setIsSSHModalOpen] = useState(false);
+  const [selectedSSHConnection, setSelectedSSHConnection] = useState<SSHConnection | null>(null);
+
+  // Charger le mode distant et la connexion SSH depuis localStorage
+  useEffect(() => {
+    const savedRemoteMode = localStorage.getItem("copy-tool-remote-mode");
+    if (savedRemoteMode) {
+      setIsRemoteMode(JSON.parse(savedRemoteMode));
+    }
+
+    const savedSSHConnection = localStorage.getItem("copy-tool-selected-ssh-connection");
+    if (savedSSHConnection) {
+      try {
+        setSelectedSSHConnection(JSON.parse(savedSSHConnection));
+      } catch (e) {
+        console.error("Erreur chargement connexion SSH sélectionnée:", e);
+      }
+    }
+  }, []);
+
+  // Sauvegarder le mode distant dans localStorage
+  const handleRemoteModeChange = (checked: boolean) => {
+    setIsRemoteMode(checked);
+    localStorage.setItem("copy-tool-remote-mode", JSON.stringify(checked));
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-3">
           <h3 className="text-lg font-medium">Configuration</h3>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="remote-mode" className="text-sm">Local</Label>
+            <Switch 
+              id="remote-mode"
+              checked={isRemoteMode}
+              onCheckedChange={handleRemoteModeChange}
+            />
+            <Label htmlFor="remote-mode" className="text-sm">Distant</Label>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
+          {isRemoteMode && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsSSHModalOpen(true)}
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={resetConfig}>
             Réinitialiser
           </Button>
@@ -84,6 +133,28 @@ function ConfigPanelContent() {
           />
         </div>
       </div>
+      
+      {/* Afficher la connexion SSH sélectionnée en mode distant */}
+      {isRemoteMode && selectedSSHConnection?.name && (
+        <div className="bg-accent/50 rounded-md p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Connexion active:</span>{" "}
+              <span className="font-medium">{selectedSSHConnection.name}</span>
+              <span className="text-xs text-muted-foreground ml-2">
+                ({selectedSSHConnection.username}@{selectedSSHConnection.host})
+              </span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setIsSSHModalOpen(true)}
+            >
+              Changer
+            </Button>
+          </div>
+        </div>
+      )}
       
       {/* Section des répertoires */}
       <CollapsibleSection 
@@ -241,6 +312,17 @@ function ConfigPanelContent() {
           </div>
         </div>
       </CollapsibleSection>
+      
+      {/* Modal de configuration SSH */}
+      <SSHConfigModal
+        isOpen={isSSHModalOpen}
+        onClose={() => setIsSSHModalOpen(false)}
+        selectedConnection={selectedSSHConnection}
+        onSelectConnection={(connection) => {
+          setSelectedSSHConnection(connection);
+          localStorage.setItem("copy-tool-selected-ssh-connection", JSON.stringify(connection));
+        }}
+      />
     </div>
   );
 } 

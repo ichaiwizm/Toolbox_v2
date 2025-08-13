@@ -104,6 +104,18 @@ export const DEFAULT_EXCLUDED_PATTERNS = [
   "vite-env.d.ts"
 ];
 
+// Types pour les connexions SSH
+export interface SSHConnection {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  savePassword: boolean;
+  timestamp: number;
+}
+
 // Fonction pour créer une configuration vide
 export const createEmptyConfig = (): CopyConfig => ({
   id: crypto.randomUUID(),
@@ -115,4 +127,16 @@ export const createEmptyConfig = (): CopyConfig => ({
   recursive: true,
   timestamp: Date.now(),
   isFavorite: false
+});
+
+// Fonction pour créer une connexion SSH vide
+export const createEmptySSHConnection = (): SSHConnection => ({
+  id: crypto.randomUUID(),
+  name: '',
+  host: '',
+  port: 22,
+  username: '',
+  password: '',
+  savePassword: false,
+  timestamp: Date.now()
 }); 
