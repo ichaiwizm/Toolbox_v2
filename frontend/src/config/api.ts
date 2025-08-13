@@ -6,8 +6,11 @@ const API_CONFIG = {
   // Préfixe des routes API
   API_PREFIX: '/api/v1',
   
-  // Timeout par défaut
+  // Timeout par défaut (30 secondes)
   TIMEOUT: 30000,
+  
+  // Timeout pour les opérations SSH/rsync (10 minutes)
+  REMOTE_TIMEOUT: 10 * 60 * 1000,
   
   // Headers par défaut
   DEFAULT_HEADERS: {
@@ -22,6 +25,18 @@ export const API_URLS = {
     SCAN: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/copy/advanced/scan`,
     FORMAT_CONTENT: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/copy/advanced/format-content`,
     HEALTH: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/copy/health`
+  },
+  // Routes remote SSH
+  REMOTE: {
+    SYNC: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/remote/sync`,
+    SCAN: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/remote/scan`,
+    FORMAT_CONTENT: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/remote/format-content`,
+    CACHE_STATUS: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/remote/cache-status`,
+    CLEANUP: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/remote/cleanup`,
+    UNLOCK: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/remote/unlock`
+  },
+  SSH: {
+    TEST_CONNECTION: `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}/ssh/test-connection`
   }
 } as const;
 
@@ -38,7 +53,11 @@ export const apiRequest = async (url: string, options: RequestInit = {}) => {
   // Ajouter timeout si AbortController n'est pas déjà utilisé
   if (!options.signal) {
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    
+    // Utiliser un timeout plus long pour les opérations SSH/rsync
+    const timeout = url.includes('/remote/') ? API_CONFIG.REMOTE_TIMEOUT : API_CONFIG.TIMEOUT;
+    setTimeout(() => controller.abort(), timeout);
+    
     config.signal = controller.signal;
   }
 

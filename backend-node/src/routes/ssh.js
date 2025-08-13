@@ -1,38 +1,21 @@
 import express from 'express';
 import { Client as SSHClient } from 'ssh2';
-import Joi from 'joi';
+import { validateRequest, SSHTestRequestSchema } from '../middleware/validation.js';
 import { getLogger } from '../utils/logger.js';
 
 const router = express.Router();
 const logger = getLogger('toolbox.ssh');
 
-// Schéma de validation pour les connexions SSH
-const sshConnectionSchema = Joi.object({
-    host: Joi.string().required().min(1).max(255),
-    port: Joi.number().integer().min(1).max(65535).default(22),
-    username: Joi.string().required().min(1).max(255),
-    password: Joi.string().allow('').optional()
-});
-
 /**
  * Test d'une connexion SSH
  * POST /api/v1/ssh/test-connection
  */
-router.post('/test-connection', async (req, res) => {
+router.post('/test-connection', validateRequest(SSHTestRequestSchema), async (req, res) => {
     const requestId = Date.now();
     logger.info(`[${requestId}] Début du test de connexion SSH`);
 
     try {
-        // Validation des données d'entrée
-        const { error, value: connectionData } = sshConnectionSchema.validate(req.body);
-        
-        if (error) {
-            logger.warning(`[${requestId}] Données invalides: ${error.details[0].message}`);
-            return res.status(400).json({
-                error: 'Données de connexion invalides',
-                details: error.details[0].message
-            });
-        }
+        const connectionData = req.validatedBody;
 
         const { host, port, username, password } = connectionData;
         

@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext, ReactNode } from "react";
-import { CopyConfig, CopyResult, createEmptyConfig } from "./types";
+import { CopyConfig, CopyResult, createEmptyConfig, SSHConnection } from "./types";
 import { useHistoryManager } from "./useHistoryManager";
 import { copyToolApi } from "./api";
 import { createApiPayload } from "./utils";
@@ -12,6 +12,8 @@ const STORAGE_KEY_RESULTS = "copy-tool-current-results";
 const STORAGE_KEY_TAB_CONFIG = "copy-tool-tab-configs"; // Pour stocker les configs par onglet
 const STORAGE_KEY_TAB_RESULTS = "copy-tool-tab-results"; // Pour stocker les résultats par onglet
 const STORAGE_KEY_EXISTING_TABS = "copy-tool-existing-tabs"; // Pour suivre les onglets qui existent déjà
+const STORAGE_KEY_TAB_REMOTE_MODE = "copy-tool-tab-remote-modes"; // Pour stocker le mode distant par onglet
+const STORAGE_KEY_TAB_SSH_CONNECTION = "copy-tool-tab-ssh-connections"; // Pour stocker la connexion SSH par onglet
 
 interface CopyToolContextType {
   // État
@@ -21,6 +23,8 @@ interface CopyToolContextType {
   isLoading: boolean;
   error: string | null;
   copied: boolean;
+  isRemoteMode: boolean;
+  selectedSSHConnection: SSHConnection | null;
   
   // Entrées de formulaire
   directoryInput: string;
@@ -36,6 +40,8 @@ interface CopyToolContextType {
   setExtensionInput: (value: string) => void;
   setPatternInput: (value: string) => void;
   setExcludeDirectoryInput: (value: string) => void;
+  setIsRemoteMode: (value: boolean) => void;
+  setSelectedSSHConnection: (connection: SSHConnection | null) => void;
   
   // Actions
   addDirectory: () => void;
@@ -72,6 +78,7 @@ interface CopyToolProviderProps {
 export function CopyToolProvider({ children }: CopyToolProviderProps) {
   // Obtenir l'onglet actif pour suivre les changements
   const { activeTab } = useTabs();
+  
 
   // État local
   const [config, setConfig] = useState<CopyConfig>(createEmptyConfig());
@@ -79,6 +86,8 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isRemoteMode, setIsRemoteMode] = useState(false);
+  const [selectedSSHConnection, setSelectedSSHConnection] = useState<SSHConnection | null>(null);
   const [initialized, setInitialized] = useState(false); // État pour suivre l'initialisation
   const [existingTabs, setExistingTabs] = useState<string[]>([]);
 
@@ -97,7 +106,8 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
     try {
       const savedExistingTabs = localStorage.getItem(STORAGE_KEY_EXISTING_TABS);
       if (savedExistingTabs) {
-        setExistingTabs(JSON.parse(savedExistingTabs));
+        const tabs = JSON.parse(savedExistingTabs);
+        setExistingTabs(tabs);
       }
       setInitialized(true);
     } catch (error) {
@@ -111,35 +121,69 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
     if (!initialized || !activeTab) return;
     
     try {
-      // Vérifier si l'onglet actif existe déjà dans notre liste
-      const isNewTab = !existingTabs.includes(activeTab);
-      
-      // Charger les configurations par onglet
+      // Charger TOUTES les configs depuis localStorage pour éviter les problèmes de synchronisation
       const tabConfigs = JSON.parse(localStorage.getItem(STORAGE_KEY_TAB_CONFIG) || '{}');
       const tabResults = JSON.parse(localStorage.getItem(STORAGE_KEY_TAB_RESULTS) || '{}');
+      const tabRemoteModes = JSON.parse(localStorage.getItem(STORAGE_KEY_TAB_REMOTE_MODE) || '{}');
+      const tabSSHConnections = JSON.parse(localStorage.getItem(STORAGE_KEY_TAB_SSH_CONNECTION) || '{}');
+      const savedExistingTabs = JSON.parse(localStorage.getItem(STORAGE_KEY_EXISTING_TABS) || '[]');
+      
+      // Vérifier si c'est un nouvel onglet basé sur localStorage, pas sur l'état local
+      const isNewTab = !savedExistingTabs.includes(activeTab) && !tabConfigs[activeTab];
       
       if (isNewTab) {
-        // Pour un nouvel onglet, utiliser une configuration vide et aucun résultat
-        setConfig(createEmptyConfig());
+        // Configuration vide pour nouvel onglet
+        const emptyConfig = createEmptyConfig();
+        setConfig(emptyConfig);
         setResults(null);
+        setIsRemoteMode(false);
+        setSelectedSSHConnection(null);
         
-        // Ajouter l'onglet à la liste des onglets existants
-        setExistingTabs(prev => [...prev, activeTab]);
-      } else if (tabConfigs[activeTab]) {
-        // Pour un onglet existant, charger sa configuration spécifique
-        setConfig(tabConfigs[activeTab]);
+        // Mettre à jour la liste des onglets existants
+        const updatedTabs = [...savedExistingTabs, activeTab];
+        setExistingTabs(updatedTabs);
+        localStorage.setItem(STORAGE_KEY_EXISTING_TABS, JSON.stringify(updatedTabs));
         
-        // Charger les résultats spécifiques à l'onglet, s'ils existent
+        // Sauvegarder immédiatement la config vide pour cet onglet
+        tabConfigs[activeTab] = emptyConfig;
+        localStorage.setItem(STORAGE_KEY_TAB_CONFIG, JSON.stringify(tabConfigs));
+      } else {
+        // Charger la config existante ou utiliser une config vide
+        const savedConfig = tabConfigs[activeTab] || createEmptyConfig();
+        setConfig(savedConfig);
+        
+        // Charger les résultats
         if (tabResults[activeTab]) {
           setResults(tabResults[activeTab]);
         } else {
           setResults(null);
         }
+        
+        // Charger le mode distant
+        const remoteMode = tabRemoteModes[activeTab] || false;
+        setIsRemoteMode(remoteMode);
+        
+        // Charger la connexion SSH
+        if (tabSSHConnections[activeTab]) {
+          setSelectedSSHConnection(tabSSHConnections[activeTab]);
+        } else {
+          setSelectedSSHConnection(null);
+        }
+        
+        // S'assurer que existingTabs est à jour
+        if (!existingTabs.includes(activeTab)) {
+          setExistingTabs(savedExistingTabs);
+        }
       }
     } catch (error) {
       console.error("Erreur lors du chargement de la configuration:", error);
+      // En cas d'erreur, initialiser avec des valeurs par défaut
+      setConfig(createEmptyConfig());
+      setResults(null);
+      setIsRemoteMode(false);
+      setSelectedSSHConnection(null);
     }
-  }, [activeTab, initialized, existingTabs]);
+  }, [activeTab, initialized]);
 
   // Sauvegarder les résultats dans le stockage local quand ils changent
   useEffect(() => {
@@ -182,6 +226,29 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
       console.error("Erreur lors de la sauvegarde de la configuration:", error);
     }
   }, [config, activeTab, initialized]);
+
+  // Sauvegarder le mode distant et la connexion SSH par onglet
+  useEffect(() => {
+    if (!initialized || !activeTab) return;
+    
+    try {
+      // Sauvegarder le mode distant
+      const tabRemoteModes = JSON.parse(localStorage.getItem(STORAGE_KEY_TAB_REMOTE_MODE) || '{}');
+      tabRemoteModes[activeTab] = isRemoteMode;
+      localStorage.setItem(STORAGE_KEY_TAB_REMOTE_MODE, JSON.stringify(tabRemoteModes));
+      
+      // Sauvegarder la connexion SSH
+      const tabSSHConnections = JSON.parse(localStorage.getItem(STORAGE_KEY_TAB_SSH_CONNECTION) || '{}');
+      if (selectedSSHConnection) {
+        tabSSHConnections[activeTab] = selectedSSHConnection;
+      } else {
+        delete tabSSHConnections[activeTab];
+      }
+      localStorage.setItem(STORAGE_KEY_TAB_SSH_CONNECTION, JSON.stringify(tabSSHConnections));
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde du mode distant:", error);
+    }
+  }, [isRemoteMode, selectedSSHConnection, activeTab, initialized]);
 
   // Réinitialiser le statut de copie après un délai
   useEffect(() => {
@@ -348,6 +415,18 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
     
     setConfig(completeConfig);
     
+    // Restaurer le mode distant et la connexion SSH si présents dans l'historique
+    if (typeof historicConfig.isRemoteMode === 'boolean') {
+      setIsRemoteMode(historicConfig.isRemoteMode);
+    }
+    
+    if (historicConfig.sshConnection) {
+      setSelectedSSHConnection(historicConfig.sshConnection);
+    } else if (historicConfig.isRemoteMode === false) {
+      // Si le mode était local, effacer la connexion SSH
+      setSelectedSSHConnection(null);
+    }
+    
     // Sauvegarder explicitement pour l'onglet actuel
     if (activeTab) {
       try {
@@ -360,17 +439,89 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
     }
   };
 
-  // Scanner les fichiers selon la configuration (mode local uniquement)
+  // Scanner les fichiers selon la configuration
   const scanFiles = async () => {
     setIsLoading(true);
     setError(null);
     setResults(null);
 
     try {
-      const payload = createApiPayload(config);
-      const result = await copyToolApi.analyzeFiles(payload);
+      let result: CopyResult;
+      
+      if (isRemoteMode && selectedSSHConnection) {
+        // Mode distant : synchroniser puis scanner
+        if (config.directories.length === 0) {
+          throw new Error("Veuillez spécifier au moins un chemin distant");
+        }
+        
+        // Utiliser le premier répertoire comme chemin distant
+        const remotePath = config.directories[0];
+        
+        // Créer les options de sync à partir de la config
+        const syncOptions = {
+          recursive: config.recursive,
+          excludeExtensions: config.excludeExtensions,
+          excludePatterns: config.excludePatterns,
+          excludeDirectories: config.excludeDirectories
+        };
+        
+        // Synchroniser d'abord
+        await copyToolApi.syncRemote(selectedSSHConnection, remotePath, syncOptions);
+        
+        // Puis scanner et formater
+        const [scanResult, formattedContent] = await Promise.all([
+          copyToolApi.scanRemoteFiles(selectedSSHConnection, remotePath, syncOptions),
+          copyToolApi.formatRemoteContent(selectedSSHConnection, remotePath, syncOptions)
+        ]);
+        
+        // Calculer les stats
+        const textStats = {
+          lines: formattedContent.split('\n').length,
+          words: formattedContent.split(/\s+/).filter(Boolean).length,
+          chars: formattedContent.length
+        };
+        
+        const extensionCount: { [key: string]: number } = {};
+        let totalSize = 0;
+        
+        scanResult.matches.forEach(file => {
+          const ext = file.extension || 'sans extension';
+          extensionCount[ext] = (extensionCount[ext] || 0) + 1;
+          totalSize += file.size || 0;
+        });
+        
+        result = {
+          matches: scanResult.matches,
+          totalMatches: scanResult.totalMatches,
+          formattedContent,
+          stats: {
+            totalLines: textStats.lines,
+            totalWords: textStats.words,
+            totalChars: textStats.chars,
+            fileCount: scanResult.matches.length,
+            folderCount: 0,
+            totalSubdirectories: scanResult.totalSubdirectories,
+            totalSize,
+            totalSizeFormatted: `${(totalSize / 1024 / 1024).toFixed(2)} Mo`,
+            byExtension: extensionCount
+          }
+        };
+      } else {
+        // Mode local : utiliser l'API normale
+        const payload = createApiPayload(config);
+        result = await copyToolApi.analyzeFiles(payload);
+      }
+      
       setResults(result);
-      saveToHistory(config);
+      
+      // Créer une config complète avec le mode distant pour l'historique
+      const configWithRemoteInfo = {
+        ...config,
+        isRemoteMode,
+        sshConnection: selectedSSHConnection
+      };
+      
+      saveToHistory(configWithRemoteInfo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
@@ -438,6 +589,8 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
         isLoading, 
         error, 
         copied,
+        isRemoteMode,
+        selectedSSHConnection,
         directoryInput,
         fileInput,
         extensionInput,
@@ -449,6 +602,8 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
         setExtensionInput,
         setPatternInput,
         setExcludeDirectoryInput,
+        setIsRemoteMode,
+        setSelectedSSHConnection,
         addDirectory,
         addFile,
         addExcludeExtension,

@@ -1,4 +1,4 @@
-import { CopyResult, FileMatch, FileStats, ScanRequestPayload } from './types';
+import { CopyResult, FileMatch, FileStats, ScanRequestPayload, SSHConnection } from './types';
 import { API_URLS, apiRequest } from '@/config/api';
 
 /**
@@ -58,6 +58,152 @@ const apiLogger = {
  * Service API pour interagir avec le backend
  */
 export const copyToolApi = {
+  /**
+   * Débloquer un cache verrouillé
+   */
+  async unlockRemote(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<any> {
+    const payload = {
+      ssh_connection: {
+        host: sshConnection.host,
+        port: sshConnection.port || 22,
+        username: sshConnection.username,
+        password: sshConnection.password
+      },
+      remote_path: remotePath,
+      sync_options: syncOptions || { recursive: true }
+    };
+    
+    try {
+      const data = await apiRequest(API_URLS.REMOTE.UNLOCK, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      
+      return data;
+    } catch (error) {
+      apiLogger.error('Échec du déblocage', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Synchroniser les fichiers distants vers le cache local
+   */
+  async syncRemote(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<any> {
+    apiLogger.info(`Synchronisation distante: ${sshConnection.host}:${remotePath}`);
+    
+    const payload = {
+      ssh_connection: {
+        host: sshConnection.host,
+        port: sshConnection.port || 22,
+        username: sshConnection.username,
+        password: sshConnection.password
+      },
+      remote_path: remotePath,
+      sync_options: syncOptions || { recursive: true }
+    };
+    
+    try {
+      const data = await apiRequest(API_URLS.REMOTE.SYNC, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      
+      apiLogger.info(`Synchronisation terminée: cache ${data.data?.cacheKey}`);
+      return data;
+    } catch (error: any) {
+      // Si erreur de synchronisation déjà en cours, essayer de débloquer et recommencer
+      if (error.message && error.message.includes('Synchronisation déjà en cours')) {
+        apiLogger.info('Tentative de déblocage automatique...');
+        
+        try {
+          await this.unlockRemote(sshConnection, remotePath, syncOptions);
+          // Réessayer la synchronisation une seule fois
+          const retryData = await apiRequest(API_URLS.REMOTE.SYNC, {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          
+          apiLogger.info(`Synchronisation réussie après déblocage: cache ${retryData.data?.cacheKey}`);
+          return retryData;
+        } catch (retryError) {
+          apiLogger.error('Échec même après déblocage', retryError);
+          throw retryError;
+        }
+      }
+      
+      apiLogger.error('Échec de la synchronisation distante', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Scanner les fichiers en mode distant (depuis le cache)
+   */
+  async scanRemoteFiles(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<{ matches: FileMatch[]; totalMatches: number; totalSubdirectories: number }> {
+    apiLogger.info(`Scan distant: ${sshConnection.host}:${remotePath}`);
+    
+    const payload = {
+      ssh_connection: {
+        host: sshConnection.host,
+        port: sshConnection.port || 22,
+        username: sshConnection.username,
+        password: sshConnection.password
+      },
+      remote_path: remotePath,
+      sync_options: syncOptions || { recursive: true },
+      allowExpired: false
+    };
+    
+    try {
+      const data = await apiRequest(API_URLS.REMOTE.SCAN, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      
+      apiLogger.info(`Scan distant terminé: ${data.total_matches || 0} fichiers trouvés`);
+      
+      return {
+        matches: data.matches || [],
+        totalMatches: data.total_matches || 0,
+        totalSubdirectories: data.total_subdirectories || 0
+      };
+    } catch (error) {
+      apiLogger.error('Échec du scan distant', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Formater le contenu en mode distant
+   */
+  async formatRemoteContent(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<string> {
+    apiLogger.info(`Formatage distant: ${sshConnection.host}:${remotePath}`);
+    
+    const payload = {
+      ssh_connection: {
+        host: sshConnection.host,
+        port: sshConnection.port || 22,
+        username: sshConnection.username,
+        password: sshConnection.password
+      },
+      remote_path: remotePath,
+      sync_options: syncOptions || { recursive: true },
+      allowExpired: false
+    };
+    
+    try {
+      const data = await apiRequest(API_URLS.REMOTE.FORMAT_CONTENT, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      
+      return data.formatted_content || '';
+    } catch (error) {
+      apiLogger.error('Échec du formatage distant', error);
+      throw error;
+    }
+  },
   /**
    * Scanner les fichiers selon les critères spécifiés
    */

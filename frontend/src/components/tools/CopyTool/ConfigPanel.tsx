@@ -44,6 +44,8 @@ function ConfigPanelContent() {
   const { 
     config,
     history,
+    isRemoteMode,
+    selectedSSHConnection,
     directoryInput,
     fileInput,
     extensionInput,
@@ -54,6 +56,8 @@ function ConfigPanelContent() {
     setExtensionInput,
     setPatternInput,
     setExcludeDirectoryInput,
+    setIsRemoteMode,
+    setSelectedSSHConnection,
     addDirectory,
     addFile,
     addExcludeExtension,
@@ -68,31 +72,28 @@ function ConfigPanelContent() {
     toggleFavorite
   } = useCopyTool();
   
-  const [isRemoteMode, setIsRemoteMode] = useState(false);
   const [isSSHModalOpen, setIsSSHModalOpen] = useState(false);
-  const [selectedSSHConnection, setSelectedSSHConnection] = useState<SSHConnection | null>(null);
 
-  // Charger le mode distant et la connexion SSH depuis localStorage
-  useEffect(() => {
-    const savedRemoteMode = localStorage.getItem("copy-tool-remote-mode");
-    if (savedRemoteMode) {
-      setIsRemoteMode(JSON.parse(savedRemoteMode));
-    }
-
-    const savedSSHConnection = localStorage.getItem("copy-tool-selected-ssh-connection");
-    if (savedSSHConnection) {
-      try {
-        setSelectedSSHConnection(JSON.parse(savedSSHConnection));
-      } catch (e) {
-        console.error("Erreur chargement connexion SSH sélectionnée:", e);
-      }
-    }
-  }, []);
-
-  // Sauvegarder le mode distant dans localStorage
+  // Le mode distant est maintenant géré par le contexte
   const handleRemoteModeChange = (checked: boolean) => {
     setIsRemoteMode(checked);
-    localStorage.setItem("copy-tool-remote-mode", JSON.stringify(checked));
+    
+    // Si on active le mode distant et qu'aucune connexion n'est sélectionnée,
+    // sélectionner automatiquement la première connexion disponible
+    if (checked && !selectedSSHConnection) {
+      try {
+        const savedConnections = localStorage.getItem("copy-tool-ssh-connections");
+        if (savedConnections) {
+          const connections = JSON.parse(savedConnections);
+          if (connections.length > 0) {
+            const firstConnection = connections[0];
+            setSelectedSSHConnection(firstConnection);
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des connexions SSH:", error);
+      }
+    }
   };
   
   return (
@@ -320,7 +321,6 @@ function ConfigPanelContent() {
         selectedConnection={selectedSSHConnection}
         onSelectConnection={(connection) => {
           setSelectedSSHConnection(connection);
-          localStorage.setItem("copy-tool-selected-ssh-connection", JSON.stringify(connection));
         }}
       />
     </div>

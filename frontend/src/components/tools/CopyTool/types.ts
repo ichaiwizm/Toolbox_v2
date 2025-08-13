@@ -9,6 +9,9 @@ export interface CopyConfig {
   timestamp: number;
   name?: string;
   isFavorite?: boolean;
+  // Informations mode distant
+  isRemoteMode?: boolean;
+  sshConnection?: SSHConnection;
 }
 
 export interface FileMatch {
@@ -101,7 +104,8 @@ export const DEFAULT_EXCLUDED_PATTERNS = [
   ".gitignore",
   "components.json",
   "eslint.config.js",
-  "vite-env.d.ts"
+  "vite-env.d.ts",
+  ".last_sync.json"
 ];
 
 // Types pour les connexions SSH

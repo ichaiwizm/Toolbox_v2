@@ -14,7 +14,6 @@ function detectEnvironment() {
     let isWSLFromSystem = false;
     if (process.platform === 'linux') {
         try {
-            const fs = require('fs');
             const version = fs.readFileSync('/proc/version', 'utf8');
             isWSLFromSystem = version.toLowerCase().includes('microsoft') || 
                              version.toLowerCase().includes('wsl');

@@ -1,4 +1,4 @@
-import { Check, Clock, Eye, FileText, FolderOpen, Star, StarOff } from "lucide-react";
+import { Check, Clock, Eye, FileText, FolderOpen, Star, StarOff, Cloud, Monitor } from "lucide-react";
 import { CopyConfig } from "../types";
 import { formatDate, formatTime } from "../utils";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,17 @@ export function HistoryItem({ item, onApply, onToggleFavorite }: HistoryItemProp
                 <FileText className="h-3 w-3" />
                 {item.files.length}
               </Badge>
+              {item.isRemoteMode ? (
+                <Badge variant="default" className="flex items-center gap-1 bg-blue-500">
+                  <Cloud className="h-3 w-3" />
+                  {item.sshConnection?.name || 'Distant'}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Monitor className="h-3 w-3" />
+                  Local
+                </Badge>
+              )}
               {item.excludeExtensions.length > 0 && (
                 <Badge variant="secondary" className="flex items-center gap-1">
                   {item.excludeExtensions.length} ext.
@@ -169,6 +180,36 @@ export function HistoryItem({ item, onApply, onToggleFavorite }: HistoryItemProp
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* Mode d'exécution */}
+            <div>
+              <h3 className="text-sm font-medium mb-1 flex items-center">
+                {item.isRemoteMode ? <Cloud className="h-4 w-4 mr-1" /> : <Monitor className="h-4 w-4 mr-1" />}
+                Mode d'exécution
+              </h3>
+              <div className="border rounded-md p-2 text-sm">
+                {item.isRemoteMode ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="default" className="bg-blue-500">Distant</Badge>
+                      {item.sshConnection && (
+                        <span className="text-muted-foreground">via {item.sshConnection.name}</span>
+                      )}
+                    </div>
+                    {item.sshConnection && (
+                      <div className="text-xs text-muted-foreground">
+                        {item.sshConnection.username}@{item.sshConnection.host}:{item.sshConnection.port}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Local</Badge>
+                    <span className="text-muted-foreground">Fichiers locaux</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             {/* Dossiers */}
             <div>
               <h3 className="text-sm font-medium mb-1 flex items-center">

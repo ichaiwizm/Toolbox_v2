@@ -6,6 +6,7 @@ import { getLogger } from './utils/logger.js';
 // Importation des routes
 import copyRoutes from './routes/copy.js';
 import sshRoutes from './routes/ssh.js';
+import remoteRoutes from './routes/remote.js';
 
 const logger = getLogger('toolbox.api');
 
@@ -51,7 +52,8 @@ function createApp() {
             version: '0.1.0',
             endpoints: [
                 '/api/v1/copy',
-                '/api/v1/ssh'
+                '/api/v1/ssh',
+                '/api/v1/remote'
             ]
         });
     });
@@ -68,6 +70,7 @@ function createApp() {
     // Enregistrement des routes avec préfixes
     app.use(`${config.API_PREFIX}/copy`, copyRoutes);
     app.use(`${config.API_PREFIX}/ssh`, sshRoutes);
+    app.use(`${config.API_PREFIX}/remote`, remoteRoutes);
     
     // Route 404 pour les endpoints non trouvés
     app.use('*', (req, res) => {
