@@ -1,7 +1,7 @@
 // Configuration de l'API
 const API_CONFIG = {
   // En développement, utiliser le port backend direct
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:9000',
+  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8547',
   
   // Préfixe des routes API
   API_PREFIX: '/api/v1',

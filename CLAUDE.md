@@ -66,6 +66,10 @@ npm run lint
 - **UI Components**: `frontend/src/components/ui/` - Reusable shadcn/ui components
 - **Contexts**: `frontend/src/contexts/` - Theme and tabs state management
 
+### Server Ports
+- **Frontend**: `http://localhost:7234` (Vite dev server)
+- **Backend**: `http://localhost:8547` (Express API server)
+
 ### API Endpoints
 All API routes are prefixed with `/api/v1/`:
 - `/copy/advanced/scan` - Scan files based on criteria

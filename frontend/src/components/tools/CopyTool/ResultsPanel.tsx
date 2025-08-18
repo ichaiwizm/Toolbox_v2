@@ -122,13 +122,14 @@ function ResultsPanelContent() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="default"
+                    variant={copied ? "outline" : "default"}
                     size="sm"
                     onClick={copyToClipboard}
                     disabled={!canCopy}
+                    className={copied ? "bg-green-50 border-green-500 text-green-700 hover:bg-green-100" : ""}
                   >
                     {copied ? (
-                      <Check className="h-4 w-4 mr-2" />
+                      <Check className="h-4 w-4 mr-2 animate-in zoom-in-50 duration-300" />
                     ) : (
                       <Clipboard className="h-4 w-4 mr-2" />
                     )}

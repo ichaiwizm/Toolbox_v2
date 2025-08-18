@@ -14,6 +14,14 @@ export interface CopyConfig {
   sshConnection?: SSHConnection;
 }
 
+export interface FormInputs {
+  directoryInput: string;
+  fileInput: string;
+  extensionInput: string;
+  patternInput: string;
+  excludeDirectoryInput: string;
+}
+
 export interface FileMatch {
   path: string;
   name: string;

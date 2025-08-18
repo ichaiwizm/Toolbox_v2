@@ -20,32 +20,48 @@ export function useConfigActions(
     setExcludeDirectoryInput: (value: string) => void;
   }
 ) {
-  // Ajouter un répertoire à la configuration
+  // Ajouter un ou plusieurs répertoires à la configuration
   const addDirectory = () => {
     if (!inputs.directoryInput.trim()) return;
     
-    const normalizedPath = normalizePath(inputs.directoryInput.trim());
+    // Supporter plusieurs chemins séparés par des virgules, points-virgules ou nouvelles lignes
+    const paths = inputs.directoryInput
+      .split(/[,;\n]+/)
+      .map(path => path.trim())
+      .filter(path => path.length > 0)
+      .map(path => normalizePath(path));
     
-    if (!config.directories.includes(normalizedPath)) {
+    // Filtrer les chemins qui ne sont pas déjà dans la liste
+    const newPaths = paths.filter(path => !config.directories.includes(path));
+    
+    if (newPaths.length > 0) {
       setConfig({
         ...config,
-        directories: [...config.directories, normalizedPath]
+        directories: [...config.directories, ...newPaths]
       });
     }
     
     inputs.setDirectoryInput("");
   };
 
-  // Ajouter un fichier à la configuration
+  // Ajouter un ou plusieurs fichiers à la configuration
   const addFile = () => {
     if (!inputs.fileInput.trim()) return;
     
-    const normalizedPath = normalizePath(inputs.fileInput.trim());
+    // Supporter plusieurs chemins séparés par des virgules, points-virgules ou nouvelles lignes
+    const paths = inputs.fileInput
+      .split(/[,;\n]+/)
+      .map(path => path.trim())
+      .filter(path => path.length > 0)
+      .map(path => normalizePath(path));
     
-    if (!config.files.includes(normalizedPath)) {
+    // Filtrer les chemins qui ne sont pas déjà dans la liste
+    const newPaths = paths.filter(path => !config.files.includes(path));
+    
+    if (newPaths.length > 0) {
       setConfig({
         ...config,
-        files: [...config.files, normalizedPath]
+        files: [...config.files, ...newPaths]
       });
     }
     

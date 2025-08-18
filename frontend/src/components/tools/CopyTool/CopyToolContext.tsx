@@ -1,13 +1,12 @@
 import { createContext, useState, useEffect, useContext, ReactNode } from "react";
-import { CopyConfig, CopyResult, createEmptyConfig, SSHConnection } from "./types";
+import { CopyConfig, CopyResult, createEmptyConfig, SSHConnection, FormInputs } from "./types";
 import { useHistoryManager } from "./useHistoryManager";
 import { useTabs } from "@/contexts/TabsContext";
 import { 
   StorageManager, 
   useFormInputs, 
   useConfigActions, 
-  useApiOperations,
-  useCopiedState
+  useApiOperations
 } from "./hooks";
 
 interface CopyToolContextType {
@@ -84,8 +83,7 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
 
   // Hooks personnalisés
   const formInputs = useFormInputs();
-  const { copied, setCopied } = useCopiedState();
-  const { isLoading, error, setError, scanFiles: apiScanFiles, copyToClipboard: apiCopyToClipboard } = useApiOperations();
+  const { isLoading, error, copied, setError, scanFiles: apiScanFiles, copyToClipboard: apiCopyToClipboard } = useApiOperations();
   const configActions = useConfigActions(config, setConfig, formInputs);
   const { history, saveToHistory, clearHistory, toggleFavorite } = useHistoryManager();
 
@@ -172,6 +170,54 @@ export function CopyToolProvider({ children }: CopyToolProviderProps) {
     StorageManager.saveTabRemoteMode(activeTab, isRemoteMode);
     StorageManager.saveTabSSHConnection(activeTab, selectedSSHConnection);
   }, [isRemoteMode, selectedSSHConnection, activeTab, initialized]);
+
+  // Charger les inputs de formulaire lors du changement d'onglet
+  useEffect(() => {
+    if (!initialized || !activeTab) return;
+    
+    try {
+      const savedInputs = StorageManager.loadFormInputs(activeTab);
+      if (savedInputs) {
+        formInputs.setDirectoryInput(savedInputs.directoryInput);
+        formInputs.setFileInput(savedInputs.fileInput);
+        formInputs.setExtensionInput(savedInputs.extensionInput);
+        formInputs.setPatternInput(savedInputs.patternInput);
+        formInputs.setExcludeDirectoryInput(savedInputs.excludeDirectoryInput);
+      } else {
+        // Onglet nouveau ou sans données sauvegardées - réinitialiser les inputs
+        formInputs.setDirectoryInput("");
+        formInputs.setFileInput("");
+        formInputs.setExtensionInput("");
+        formInputs.setPatternInput("");
+        formInputs.setExcludeDirectoryInput("");
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des inputs de formulaire:", error);
+    }
+  }, [activeTab, initialized]);
+
+  // Sauvegarder les inputs de formulaire quand ils changent
+  useEffect(() => {
+    if (!initialized || !activeTab) return;
+    
+    const currentInputs: FormInputs = {
+      directoryInput: formInputs.directoryInput,
+      fileInput: formInputs.fileInput,
+      extensionInput: formInputs.extensionInput,
+      patternInput: formInputs.patternInput,
+      excludeDirectoryInput: formInputs.excludeDirectoryInput
+    };
+    
+    StorageManager.saveFormInputs(activeTab, currentInputs);
+  }, [
+    formInputs.directoryInput,
+    formInputs.fileInput,
+    formInputs.extensionInput,
+    formInputs.patternInput,
+    formInputs.excludeDirectoryInput,
+    activeTab,
+    initialized
+  ]);
 
   // L'effet de réinitialisation de copie est géré dans useCopiedState
 

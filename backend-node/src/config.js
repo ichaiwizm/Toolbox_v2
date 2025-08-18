@@ -17,7 +17,7 @@ export const config = {
     API_PREFIX: '/api/v1',
     DEBUG: (process.env.DEBUG || 'true').toLowerCase() === 'true',
     API_HOST: process.env.API_HOST || '0.0.0.0',
-    API_PORT: parseInt(process.env.API_PORT) || 9000,
+    API_PORT: parseInt(process.env.API_PORT) || 8547,
     
     // Répertoires
     ROOT_DIR: path.resolve(__dirname, '../..'),

@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { StorageManager } from '@/components/tools/CopyTool/hooks/useStorageManager';
 
 export type ToolType = 'Dashboard' | 'CopyTool' | 'BackupTool' | 'AiStructureTool' | 'ProjectAnalysisTool' | 'WinMergeTool';
 
@@ -9,6 +10,20 @@ export interface Tab {
   icon?: string;
   closable: boolean;
   pinned: boolean;
+}
+
+export interface PersistedTab {
+  id: string;
+  type: ToolType;
+  title: string;
+  pinned: boolean;
+  order: number;
+  createdAt: string;
+}
+
+export interface TabMetadata {
+  lastActiveTab: string | null;
+  tabOrder: string[];
 }
 
 interface TabsContextType {
@@ -26,13 +41,113 @@ interface TabsContextType {
 
 const TabsContext = createContext<TabsContextType | undefined>(undefined);
 
+// Fonctions utilitaires pour la conversion
+function tabToPersistedTab(tab: Tab, order: number, createdAt?: string): PersistedTab {
+  return {
+    id: tab.id,
+    type: tab.type,
+    title: tab.title,
+    pinned: tab.pinned,
+    order,
+    createdAt: createdAt || new Date().toISOString()
+  };
+}
+
+function persistedTabToTab(persistedTab: PersistedTab): Tab {
+  return {
+    id: persistedTab.id,
+    type: persistedTab.type,
+    title: persistedTab.title,
+    icon: undefined,
+    closable: persistedTab.type !== 'Dashboard',
+    pinned: persistedTab.pinned
+  };
+}
+
 export function TabsProvider({ children }: { children: ReactNode }) {
-  // Dashboard is always present and not closable
-  const [tabs, setTabs] = useState<Tab[]>([
-    { id: 'dashboard', type: 'Dashboard', title: 'Dashboard', closable: false, pinned: true }
-  ]);
-  
-  const [activeTab, setActiveTab] = useState<string | null>('dashboard');
+  // État local
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // Charger les onglets persistés au démarrage
+  useEffect(() => {
+    try {
+      const persistedTabs = StorageManager.loadPersistedTabs();
+      const metadata = StorageManager.loadTabMetadata();
+
+      if (persistedTabs.length > 0) {
+        // Convertir les onglets persistés en onglets
+        const loadedTabs = persistedTabs
+          .sort((a, b) => a.order - b.order)
+          .map(persistedTabToTab);
+        
+        setTabs(loadedTabs);
+        setActiveTab(metadata.lastActiveTab || loadedTabs[0]?.id || null);
+      } else {
+        // Première fois - créer le Dashboard par défaut
+        const defaultTab: Tab = { 
+          id: 'dashboard', 
+          type: 'Dashboard', 
+          title: 'Dashboard', 
+          closable: false, 
+          pinned: true 
+        };
+        setTabs([defaultTab]);
+        setActiveTab('dashboard');
+        
+        // Sauvegarder le Dashboard par défaut
+        const persistedDashboard = tabToPersistedTab(defaultTab, 0);
+        StorageManager.savePersistedTabs([persistedDashboard]);
+        StorageManager.saveTabMetadata({
+          lastActiveTab: 'dashboard',
+          tabOrder: ['dashboard']
+        });
+      }
+
+      // Nettoyer les anciens onglets (30 jours)
+      StorageManager.cleanupOldTabs(30);
+      setInitialized(true);
+    } catch (error) {
+      console.error("Erreur lors du chargement des onglets:", error);
+      // Fallback en cas d'erreur
+      const defaultTab: Tab = { 
+        id: 'dashboard', 
+        type: 'Dashboard', 
+        title: 'Dashboard', 
+        closable: false, 
+        pinned: true 
+      };
+      setTabs([defaultTab]);
+      setActiveTab('dashboard');
+      setInitialized(true);
+    }
+  }, []);
+
+  // Sauvegarder les onglets à chaque changement
+  useEffect(() => {
+    if (!initialized) return;
+    
+    try {
+      // Charger les onglets existants pour préserver les dates de création
+      const existingPersistedTabs = StorageManager.loadPersistedTabs();
+      
+      const persistedTabs = tabs.map((tab, index) => {
+        const existingTab = existingPersistedTabs.find(pt => pt.id === tab.id);
+        return tabToPersistedTab(tab, index, existingTab?.createdAt);
+      });
+      
+      StorageManager.savePersistedTabs(persistedTabs);
+      
+      const metadata: TabMetadata = {
+        lastActiveTab: activeTab,
+        tabOrder: tabs.map(tab => tab.id)
+      };
+      StorageManager.saveTabMetadata(metadata);
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des onglets:", error);
+    }
+  }, [tabs, activeTab, initialized]);
 
   // Count instances of a tool type
   const getToolInstances = (type: ToolType): number => {
@@ -66,6 +181,9 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     const tabIndex = tabs.findIndex(tab => tab.id === id);
     if (tabIndex === -1 || !tabs[tabIndex].closable) return;
 
+    // Supprimer les données persistées de l'onglet
+    StorageManager.removePersistedTab(id);
+
     const newTabs = tabs.filter(tab => tab.id !== id);
     setTabs(newTabs);
 
@@ -78,6 +196,14 @@ export function TabsProvider({ children }: { children: ReactNode }) {
 
   // Close all unpinned tabs
   const closeAllUnpinnedTabs = () => {
+    // Identifier les onglets à supprimer
+    const unpinnedTabs = tabs.filter(tab => !tab.pinned);
+    
+    // Supprimer les données persistées des onglets non épinglés
+    unpinnedTabs.forEach(tab => {
+      StorageManager.removePersistedTab(tab.id);
+    });
+
     // Keep only pinned tabs
     const pinnedTabs = tabs.filter(tab => tab.pinned);
     setTabs(pinnedTabs);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CopyConfig, CopyResult, SSHConnection } from "../types";
 import { copyToolApi } from "../api";
 import { createApiPayload } from "../utils";
@@ -10,6 +10,7 @@ export function useApiOperations() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
 
   // Scanner les fichiers selon la configuration
   const scanFiles = async (
@@ -105,7 +106,13 @@ export function useApiOperations() {
     if (currentResults?.formattedContent) {
       try {
         await navigator.clipboard.writeText(currentResults.formattedContent);
-        setCopied(true);
+        setCopied(() => true);
+        
+        // Auto-reset après 2 secondes
+        setTimeout(() => {
+          setCopied(() => false);
+        }, 2000);
+        
         return { results: currentResults, formattedContent: currentResults.formattedContent };
       } catch (err) {
         setError("Impossible de copier dans le presse-papier");
@@ -140,7 +147,12 @@ export function useApiOperations() {
         };
 
       await navigator.clipboard.writeText(formattedContent);
-      setCopied(true);
+      setCopied(() => true);
+      
+      // Auto-reset après 2 secondes
+      setTimeout(() => {
+        setCopied(() => false);
+      }, 2000);
       
       return { results, formattedContent };
     } catch (err) {

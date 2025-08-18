@@ -1,4 +1,5 @@
-import { CopyConfig, CopyResult, SSHConnection } from "../types";
+import { CopyConfig, CopyResult, SSHConnection, FormInputs } from "../types";
+import { PersistedTab, TabMetadata } from "@/contexts/TabsContext";
 
 // Clés de stockage local pour l'état de l'outil
 export const STORAGE_KEYS = {
@@ -8,7 +9,11 @@ export const STORAGE_KEYS = {
   TAB_RESULTS: "copy-tool-tab-results",
   EXISTING_TABS: "copy-tool-existing-tabs",
   TAB_REMOTE_MODE: "copy-tool-tab-remote-modes",
-  TAB_SSH_CONNECTION: "copy-tool-tab-ssh-connections"
+  TAB_SSH_CONNECTION: "copy-tool-tab-ssh-connections",
+  // Nouvelles clés pour la persistance des onglets
+  PERSISTENT_TABS: "app-persistent-tabs",
+  TAB_METADATA: "app-tab-metadata", 
+  TAB_FORM_INPUTS: "copy-tool-tab-form-inputs"
 } as const;
 
 /**
@@ -207,8 +212,166 @@ export class StorageManager {
       const tabSSHConnections = JSON.parse(localStorage.getItem(STORAGE_KEYS.TAB_SSH_CONNECTION) || '{}');
       delete tabSSHConnections[tabId];
       localStorage.setItem(STORAGE_KEYS.TAB_SSH_CONNECTION, JSON.stringify(tabSSHConnections));
+
+      // Supprimer les inputs de formulaire
+      const tabFormInputs = JSON.parse(localStorage.getItem(STORAGE_KEYS.TAB_FORM_INPUTS) || '{}');
+      delete tabFormInputs[tabId];
+      localStorage.setItem(STORAGE_KEYS.TAB_FORM_INPUTS, JSON.stringify(tabFormInputs));
     } catch (error) {
       console.error("Erreur lors de la suppression des données de l'onglet:", error);
+    }
+  }
+
+  // ========================================
+  // NOUVELLES MÉTHODES POUR LA PERSISTANCE DES ONGLETS
+  // ========================================
+
+  /**
+   * Sauvegarde les onglets persistés
+   */
+  static savePersistedTabs(tabs: PersistedTab[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PERSISTENT_TABS, JSON.stringify(tabs));
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des onglets persistés:", error);
+    }
+  }
+
+  /**
+   * Charge les onglets persistés
+   */
+  static loadPersistedTabs(): PersistedTab[] {
+    try {
+      const savedTabs = localStorage.getItem(STORAGE_KEYS.PERSISTENT_TABS);
+      return savedTabs ? JSON.parse(savedTabs) : [];
+    } catch (error) {
+      console.error("Erreur lors du chargement des onglets persistés:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Sauvegarde les métadonnées des onglets
+   */
+  static saveTabMetadata(metadata: TabMetadata): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TAB_METADATA, JSON.stringify(metadata));
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des métadonnées d'onglets:", error);
+    }
+  }
+
+  /**
+   * Charge les métadonnées des onglets
+   */
+  static loadTabMetadata(): TabMetadata {
+    try {
+      const savedMetadata = localStorage.getItem(STORAGE_KEYS.TAB_METADATA);
+      return savedMetadata ? JSON.parse(savedMetadata) : {
+        lastActiveTab: null,
+        tabOrder: []
+      };
+    } catch (error) {
+      console.error("Erreur lors du chargement des métadonnées d'onglets:", error);
+      return {
+        lastActiveTab: null,
+        tabOrder: []
+      };
+    }
+  }
+
+  /**
+   * Sauvegarde les inputs de formulaire d'un onglet
+   */
+  static saveFormInputs(tabId: string, inputs: FormInputs): void {
+    try {
+      const tabFormInputs = JSON.parse(localStorage.getItem(STORAGE_KEYS.TAB_FORM_INPUTS) || '{}');
+      tabFormInputs[tabId] = inputs;
+      localStorage.setItem(STORAGE_KEYS.TAB_FORM_INPUTS, JSON.stringify(tabFormInputs));
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des inputs de formulaire:", error);
+    }
+  }
+
+  /**
+   * Charge les inputs de formulaire d'un onglet
+   */
+  static loadFormInputs(tabId: string): FormInputs | null {
+    try {
+      const tabFormInputs = JSON.parse(localStorage.getItem(STORAGE_KEYS.TAB_FORM_INPUTS) || '{}');
+      return tabFormInputs[tabId] || null;
+    } catch (error) {
+      console.error("Erreur lors du chargement des inputs de formulaire:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Supprime un onglet des données persistées
+   */
+  static removePersistedTab(tabId: string): void {
+    try {
+      // Supprimer de la liste des onglets persistés
+      const persistedTabs = this.loadPersistedTabs();
+      const updatedTabs = persistedTabs.filter(tab => tab.id !== tabId);
+      this.savePersistedTabs(updatedTabs);
+
+      // Mettre à jour les métadonnées
+      const metadata = this.loadTabMetadata();
+      metadata.tabOrder = metadata.tabOrder.filter(id => id !== tabId);
+      if (metadata.lastActiveTab === tabId) {
+        metadata.lastActiveTab = null;
+      }
+      this.saveTabMetadata(metadata);
+
+      // Supprimer toutes les données associées à l'onglet
+      this.clearTabData(tabId);
+    } catch (error) {
+      console.error("Erreur lors de la suppression de l'onglet persisté:", error);
+    }
+  }
+
+  /**
+   * Nettoie les onglets anciens (plus de X jours)
+   */
+  static cleanupOldTabs(maxAgeInDays: number = 30): void {
+    try {
+      const persistedTabs = this.loadPersistedTabs();
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - maxAgeInDays);
+
+      const validTabs = persistedTabs.filter(tab => {
+        // Ne jamais supprimer le Dashboard
+        if (tab.type === 'Dashboard') return true;
+        
+        const createdAt = new Date(tab.createdAt);
+        return createdAt > cutoffDate;
+      });
+
+      // Nettoyer les onglets supprimés
+      const removedTabIds = persistedTabs
+        .filter(tab => !validTabs.includes(tab))
+        .map(tab => tab.id);
+
+      removedTabIds.forEach(tabId => {
+        this.clearTabData(tabId);
+      });
+
+      // Sauvegarder les onglets valides
+      this.savePersistedTabs(validTabs);
+
+      // Mettre à jour les métadonnées
+      const metadata = this.loadTabMetadata();
+      metadata.tabOrder = metadata.tabOrder.filter(id => 
+        validTabs.some(tab => tab.id === id)
+      );
+      if (metadata.lastActiveTab && removedTabIds.includes(metadata.lastActiveTab)) {
+        metadata.lastActiveTab = null;
+      }
+      this.saveTabMetadata(metadata);
+
+    } catch (error) {
+      console.error("Erreur lors du nettoyage des anciens onglets:", error);
     }
   }
 }

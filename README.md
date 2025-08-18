@@ -62,8 +62,8 @@ Cette commande va:
 - Démarrer le serveur frontend (Vite)
 - Démarrer le serveur backend Node.js (Express)
 
-Le frontend sera accessible à l'adresse: http://localhost:5173
-Le backend sera accessible à l'adresse: http://localhost:8000
+Le frontend sera accessible à l'adresse: http://localhost:7234
+Le backend sera accessible à l'adresse: http://localhost:8547
 
 ## Tests
 

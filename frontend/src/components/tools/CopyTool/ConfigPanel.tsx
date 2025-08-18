@@ -168,7 +168,7 @@ function ConfigPanelContent() {
             value={directoryInput}
             onChange={setDirectoryInput}
             onAdd={addDirectory}
-            placeholder="Chemin du dossier"
+            placeholder="Chemin du dossier (séparez par , ou ; pour plusieurs)"
             buttonLabel="Ajouter"
           />
           
