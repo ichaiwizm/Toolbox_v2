@@ -1,3 +1,4 @@
+import path from 'path';
 import { wslDetector } from '../../utils/remote/wsl-detector.js';
 import { sshCommander } from '../../utils/remote/ssh-commander.js';
 import { cacheManager } from './cache-manager.js';
@@ -13,11 +14,143 @@ const logger = getLogger('toolbox.remote-sync');
 export class RemoteSyncService {
     
     /**
-     * Synchronise un chemin distant vers le cache local
+     * Synchronise des chemins multiples (répertoires + fichiers) vers le cache local
      * @param {Object} sshConnection - Configuration SSH
-     * @param {string} remotePath - Chemin sur le serveur distant
+     * @param {string[]} directories - Répertoires distants
+     * @param {string[]} files - Fichiers spécifiques distants
      * @param {Object} syncOptions - Options de synchronisation
      * @returns {Promise<Object>} Résultat de la synchronisation
+     */
+    async syncMultiplePathsToCache(sshConnection, directories = [], files = [], syncOptions = {}) {
+        const allPaths = [...directories, ...files];
+        if (allPaths.length === 0) {
+            throw new Error('Au moins un chemin (répertoire ou fichier) doit être spécifié');
+        }
+        
+        const syncId = Date.now();
+        logger.info(`[${syncId}] Début synchronisation multiple ${sshConnection.host}: ${allPaths.length} chemins`);
+        
+        try {
+            // 1. Vérifications préalables pour tous les chemins
+            for (const path of allPaths) {
+                await this._performPreflightChecks(sshConnection, path);
+            }
+            
+            // 2. Préparation du cache unifié
+            const cacheKey = cacheManager.generateMultiplePathsCacheKey(sshConnection, directories, files, syncOptions);
+            const cachePath = cacheManager.prepareCacheDirectory(cacheKey);
+            
+            // 3. Gestion du verrou
+            if (cacheManager.isLocked(cacheKey)) {
+                throw new Error('Synchronisation déjà en cours pour ces chemins');
+            }
+            
+            const lockPath = cacheManager.createLock(cacheKey, syncId);
+            
+            try {
+                // 4. Synchronisation de chaque chemin
+                const syncResults = [];
+                const pathMappings = [];
+                
+                for (const remotePath of allPaths) {
+                    const isDirectory = directories.includes(remotePath);
+                    const isFile = files.includes(remotePath);
+                    
+                    // Pour les fichiers, créer un dossier de cache spécifique 
+                    // Le fichier sera synchronisé à l'intérieur de ce dossier
+                    let pathCachePath;
+                    if (isFile) {
+                        // Créer un dossier pour ce fichier spécifique
+                        const sanitizedName = remotePath.replace(/[\/\\]/g, '_').replace(/:/g, '-');
+                        pathCachePath = path.join(cachePath, `file_${sanitizedName}`);
+                    } else {
+                        // Pour les répertoires, utiliser la méthode normale
+                        pathCachePath = cacheManager.generatePathSpecificCache(cachePath, remotePath);
+                    }
+                    
+                    // Dry-run pour estimation
+                    const dryRunResult = await rsyncExecutor.performDryRun(
+                        sshConnection, 
+                        remotePath, 
+                        pathCachePath, 
+                        { ...syncOptions, isFile: !isDirectory }
+                    );
+                    
+                    logger.info(`[${syncId}] Dry-run ${remotePath}: ${dryRunResult.estimatedFiles} fichiers estimés`);
+                    
+                    // Synchronisation effective
+                    const syncResult = await rsyncExecutor.performSync(
+                        sshConnection, 
+                        remotePath, 
+                        pathCachePath, 
+                        { ...syncOptions, isFile: !isDirectory }
+                    );
+                    
+                    syncResults.push(syncResult);
+                    pathMappings.push([remotePath, pathCachePath]);
+                    
+                    logger.info(`[${syncId}] Sync ${remotePath}: ${syncResult.transferredFiles} fichiers transférés`);
+                }
+                
+                // 5. Consolidation des résultats
+                const totalStats = syncResults.reduce((acc, result) => ({
+                    transferredFiles: acc.transferredFiles + (result.transferredFiles || 0),
+                    totalSize: acc.totalSize + (result.totalSize || 0),
+                    duration: Math.max(acc.duration, result.duration || 0)
+                }), { transferredFiles: 0, totalSize: 0, duration: 0 });
+                
+                // 6. Sauvegarde des métadonnées du cache
+                const cacheInfo = {
+                    cacheKey,
+                    cachePath,
+                    pathMappings,
+                    directories: directories.map(dir => cacheManager.generatePathSpecificCache(cachePath, dir)),
+                    files: files.map(file => {
+                        // Pour les fichiers, le chemin réel dans le cache inclut le nom du fichier
+                        const sanitizedName = file.replace(/[\/\\]/g, '_').replace(/:/g, '-');
+                        const fileDir = path.join(cachePath, `file_${sanitizedName}`);
+                        const fileName = path.basename(file);
+                        return path.join(fileDir, fileName);
+                    }),
+                    lastSync: new Date(),
+                    syncOptions,
+                    connection: {
+                        host: sshConnection.host,
+                        port: sshConnection.port || 22,
+                        username: sshConnection.username
+                    },
+                    stats: totalStats
+                };
+                
+                cacheManager.saveCacheInfo(cacheKey, cacheInfo);
+                
+                const result = {
+                    cacheKey,
+                    cachePath,
+                    pathMappings,
+                    cacheDirectories: cacheInfo.directories,
+                    cacheFiles: cacheInfo.files,
+                    stats: totalStats,
+                    connection: cacheInfo.connection,
+                    syncId
+                };
+                
+                logger.info(`[${syncId}] Synchronisation multiple terminée: ${totalStats.transferredFiles} fichiers`);
+                return result;
+                
+            } finally {
+                cacheManager.removeLock(cacheKey);
+            }
+            
+        } catch (error) {
+            logger.error(`[${syncId}] Erreur synchronisation multiple: ${error.message}`);
+            throw error;
+        }
+    }
+    
+    /**
+     * LEGACY: Synchronise un chemin distant unique vers le cache local
+     * Maintenu pour compatibilité ascendante
      */
     async syncRemoteToCache(sshConnection, remotePath, syncOptions = {}) {
         const syncId = Date.now();
@@ -91,11 +224,33 @@ export class RemoteSyncService {
     }
     
     /**
-     * Vérifie le statut du cache pour une connexion/chemin
+     * Vérifie le statut du cache pour des chemins multiples
      * @param {Object} sshConnection - Configuration SSH
-     * @param {string} remotePath - Chemin distant
+     * @param {string[]} directories - Répertoires distants
+     * @param {string[]} files - Fichiers spécifiques distants
      * @param {Object} syncOptions - Options de sync
      * @returns {Object} Statut du cache
+     */
+    getMultiplePathsCacheStatus(sshConnection, directories = [], files = [], syncOptions = {}) {
+        const cacheKey = cacheManager.generateMultiplePathsCacheKey(sshConnection, directories, files, syncOptions);
+        const status = cacheManager.getCacheStatus(cacheKey);
+        
+        // Enrichir avec les informations des chemins multiples
+        if (status.exists) {
+            const cacheInfo = cacheManager.getCacheInfo(cacheKey);
+            if (cacheInfo) {
+                status.pathMappings = cacheInfo.pathMappings || [];
+                status.cacheDirectories = cacheInfo.directories || [];
+                status.cacheFiles = cacheInfo.files || [];
+            }
+        }
+        
+        return status;
+    }
+    
+    /**
+     * LEGACY: Vérifie le statut du cache pour un chemin unique
+     * Maintenu pour compatibilité ascendante
      */
     getCacheStatus(sshConnection, remotePath, syncOptions = {}) {
         const cacheKey = cacheManager.generateCacheKey(sshConnection, remotePath, syncOptions);
@@ -121,11 +276,23 @@ export class RemoteSyncService {
     }
     
     /**
-     * Force le déblocage d'un cache verrouillé
+     * Force le déblocage d'un cache verrouillé pour chemins multiples
      * @param {Object} sshConnection - Configuration SSH
-     * @param {string} remotePath - Chemin distant
+     * @param {string[]} directories - Répertoires distants
+     * @param {string[]} files - Fichiers spécifiques distants
      * @param {Object} syncOptions - Options de sync
      * @returns {boolean} True si un verrou a été supprimé
+     */
+    forceUnlockMultiplePaths(sshConnection, directories = [], files = [], syncOptions = {}) {
+        const cacheKey = cacheManager.generateMultiplePathsCacheKey(sshConnection, directories, files, syncOptions);
+        const unlocked = cacheManager.forceUnlock(cacheKey);
+        logger.info(`Force unlock multiple paths ${cacheKey}: ${unlocked ? 'success' : 'no lock found'}`);
+        return unlocked;
+    }
+    
+    /**
+     * LEGACY: Force le déblocage d'un cache verrouillé pour un chemin unique
+     * Maintenu pour compatibilité ascendante
      */
     forceUnlock(sshConnection, remotePath, syncOptions = {}) {
         const cacheKey = cacheManager.generateCacheKey(sshConnection, remotePath, syncOptions);

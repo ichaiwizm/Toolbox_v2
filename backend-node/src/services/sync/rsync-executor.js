@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import path from 'path';
 import { sshCommander } from '../../utils/remote/ssh-commander.js';
 import { pathConverter } from '../../utils/remote/path-converter.js';
 import { getLogger } from '../../utils/logger.js';
@@ -171,10 +172,26 @@ export class RsyncExecutor {
             ? `/usr/bin/sshpass -p '${shQ(sshConnection.password)}' ${sshBase}`
             : sshBase;
 
-        // Arguments rsync "classiques" (sans -e car on utilise RSYNC_RSH)
-        const rsyncArgs = [
-            ...this.defaultRsyncOptions
-        ];
+        // Arguments rsync adaptés selon le type (fichier vs répertoire)
+        let rsyncArgs;
+        if (syncOptions.isFile) {
+            // Pour un fichier : pas d'option récursive, juste les options de base
+            rsyncArgs = [
+                '-z',           // Compression
+                '--partial',    // Reprendre les transferts interrompus
+                '--info=progress2', // Progress info
+                '--no-perms',   // Pas de propagation perms Unix
+                '--no-owner',   // Pas de propagation propriétaire
+                '--no-group'    // Pas de propagation groupe
+                // PAS de -a (qui inclut -r récursif) ni --delete-excluded pour les fichiers
+            ];
+        } else {
+            // Pour un répertoire : options complètes avec récursivité
+            rsyncArgs = [
+                ...this.defaultRsyncOptions
+            ];
+        }
+        
         if (isDryRun) {
             rsyncArgs.push('--dry-run');
         }
@@ -182,9 +199,26 @@ export class RsyncExecutor {
         // Exclusions
         this._addExclusionRules(rsyncArgs, syncOptions);
 
-        // Source (toujours avec / final) et destination (chemin WSL avec / final)
-        const source = `${sshConnection.username}@${sshConnection.host}:${remotePath.replace(/\/?$/, '/')}`;
-        const wslCachePath = pathConverter.windowsToWSL(cachePath).replace(/\/?$/, '/');
+        // Source et destination (traitement différent pour fichiers vs répertoires)
+        let source, wslCachePath;
+        
+        if (syncOptions.isFile) {
+            // Pour un fichier : pas de / final, et la destination doit être le répertoire parent
+            source = `${sshConnection.username}@${sshConnection.host}:${remotePath}`;
+            // Créer le répertoire parent dans le cache et copier le fichier dedans
+            const wslBaseCache = pathConverter.windowsToWSL(cachePath);
+            const fileName = path.basename(remotePath);
+            wslCachePath = wslBaseCache.replace(/\/?$/, '/');
+            
+            // Pour rsync avec un fichier source, il faut juste spécifier le répertoire de destination
+            logger.debug(`Mode fichier: ${source} -> ${wslCachePath}`);
+        } else {
+            // Pour un répertoire : avec / final
+            source = `${sshConnection.username}@${sshConnection.host}:${remotePath.replace(/\/?$/, '/')}`;
+            wslCachePath = pathConverter.windowsToWSL(cachePath).replace(/\/?$/, '/');
+            
+            logger.debug(`Mode répertoire: ${source} -> ${wslCachePath}`);
+        }
 
         // Construire une ligne unique exécutée par bash -lc
         // 1) on exporte RSYNC_RSH='...'

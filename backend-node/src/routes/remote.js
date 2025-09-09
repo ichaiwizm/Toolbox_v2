@@ -23,12 +23,13 @@ router.post('/sync', validateRequest(RemoteSyncRequestSchema), async (req, res) 
     try {
         const validated = req.validatedBody;
 
-        const { ssh_connection, remote_path, sync_options } = validated;
+        const { ssh_connection, directories, files, sync_options } = validated;
         
-        // Lancer la synchronisation
-        const result = await remoteSyncService.syncRemoteToCache(
+        // Lancer la synchronisation avec support des chemins multiples
+        const result = await remoteSyncService.syncMultiplePathsToCache(
             ssh_connection,
-            remote_path,
+            directories,
+            files,
             sync_options
         );
         
@@ -66,11 +67,12 @@ router.post('/cache-status', validateRequest(CacheStatusRequestSchema), async (r
     try {
         const validated = req.validatedBody;
 
-        const { ssh_connection, remote_path, sync_options } = validated;
+        const { ssh_connection, directories, files, sync_options } = validated;
         
-        const status = remoteSyncService.getCacheStatus(
+        const status = remoteSyncService.getMultiplePathsCacheStatus(
             ssh_connection,
-            remote_path,
+            directories,
+            files,
             sync_options
         );
         
@@ -102,19 +104,20 @@ router.post('/scan', validateRequest(RemoteSyncRequestSchema), async (req, res) 
     try {
         const validated = req.validatedBody;
 
-        const { ssh_connection, remote_path, sync_options, allowExpired } = validated;
+        const { ssh_connection, directories, files, sync_options, allowExpired } = validated;
         
-        // Vérifier le statut du cache
-        const cacheStatus = remoteSyncService.getCacheStatus(
+        // Vérifier le statut du cache pour les chemins multiples
+        const cacheStatus = remoteSyncService.getMultiplePathsCacheStatus(
             ssh_connection,
-            remote_path,
+            directories,
+            files,
             sync_options
         );
         
         if (!cacheStatus.exists) {
             return res.status(404).json({
                 error: 'Cache non trouvé',
-                message: 'Vous devez d\'abord synchroniser ce chemin distant',
+                message: 'Vous devez d\'abord synchroniser ces chemins distants',
                 cacheKey: cacheStatus.cacheKey
             });
         }
@@ -127,10 +130,10 @@ router.post('/scan', validateRequest(RemoteSyncRequestSchema), async (req, res) 
             });
         }
         
-        // Scanner les fichiers depuis le cache local
+        // Scanner les fichiers depuis le cache local avec chemins multiples
         const scanRequest = {
-            directories: [cacheStatus.cachePath],
-            files: [],
+            directories: cacheStatus.cacheDirectories || [],
+            files: cacheStatus.cacheFiles || [],
             rules: {
                 exclude_extensions: sync_options.excludeExtensions || [],
                 exclude_patterns: sync_options.excludePatterns || [],
@@ -143,19 +146,30 @@ router.post('/scan', validateRequest(RemoteSyncRequestSchema), async (req, res) 
         
         const result = await copyService.scanFiles(scanRequest);
         
-        // Remplacer les chemins de cache par les chemins distants
+        // Remplacer les chemins de cache par les chemins distants originaux
         const remoteResult = {
             ...result,
-            matches: result.matches.map(match => ({
-                ...match,
-                path: match.path.replace(cacheStatus.cachePath, remote_path),
-                remote_path: remote_path,
-                cache_path: match.path
-            })),
+            matches: result.matches.map(match => {
+                // Trouver le chemin distant correspondant basé sur le mapping du cache
+                let remotePath = match.path;
+                for (const [originalPath, cachePath] of cacheStatus.pathMappings || []) {
+                    if (match.path.startsWith(cachePath)) {
+                        remotePath = match.path.replace(cachePath, originalPath);
+                        break;
+                    }
+                }
+                
+                return {
+                    ...match,
+                    path: remotePath,
+                    cache_path: match.path
+                };
+            }),
             cache_info: {
                 cacheKey: cacheStatus.cacheKey,
                 lastSync: cacheStatus.lastSync,
-                isExpired: cacheStatus.isExpired
+                isExpired: cacheStatus.isExpired,
+                pathMappings: cacheStatus.pathMappings
             }
         };
         
@@ -183,12 +197,13 @@ router.post('/format-content', validateRequest(RemoteSyncRequestSchema), async (
     try {
         const validated = req.validatedBody;
 
-        const { ssh_connection, remote_path, sync_options } = validated;
+        const { ssh_connection, directories, files, sync_options } = validated;
         
         // Vérifier le cache comme pour scan
-        const cacheStatus = remoteSyncService.getCacheStatus(
+        const cacheStatus = remoteSyncService.getMultiplePathsCacheStatus(
             ssh_connection,
-            remote_path,
+            directories,
+            files,
             sync_options
         );
         
@@ -199,10 +214,10 @@ router.post('/format-content', validateRequest(RemoteSyncRequestSchema), async (
             });
         }
         
-        // Formatter le contenu depuis le cache local
+        // Formatter le contenu depuis le cache local avec chemins multiples
         const formatRequest = {
-            directories: [cacheStatus.cachePath],
-            files: [],
+            directories: cacheStatus.cacheDirectories || [],
+            files: cacheStatus.cacheFiles || [],
             rules: {
                 exclude_extensions: sync_options.excludeExtensions || [],
                 exclude_patterns: sync_options.excludePatterns || [],
@@ -215,27 +230,39 @@ router.post('/format-content', validateRequest(RemoteSyncRequestSchema), async (
         
         const result = await copyService.scanAndFormatContent(formatRequest);
         
-        // Remplacer les chemins dans le contenu formaté
+        // Remplacer les chemins dans le contenu formaté avec mapping multiple
         let formattedContent = result.formatted_content;
-        if (formattedContent) {
-            // Regex pour remplacer les chemins de cache par les chemins distants
-            const cachePathRegex = new RegExp(cacheStatus.cachePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-            formattedContent = formattedContent.replace(cachePathRegex, remote_path);
+        if (formattedContent && cacheStatus.pathMappings) {
+            for (const [originalPath, cachePath] of cacheStatus.pathMappings) {
+                const cachePathRegex = new RegExp(cachePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                formattedContent = formattedContent.replace(cachePathRegex, originalPath);
+            }
         }
         
         const remoteResult = {
             ...result,
             formatted_content: formattedContent,
-            matches: result.matches.map(match => ({
-                ...match,
-                path: match.path.replace(cacheStatus.cachePath, remote_path),
-                remote_path: remote_path,
-                cache_path: match.path
-            })),
+            matches: result.matches.map(match => {
+                // Trouver le chemin distant correspondant basé sur le mapping du cache
+                let remotePath = match.path;
+                for (const [originalPath, cachePath] of cacheStatus.pathMappings || []) {
+                    if (match.path.startsWith(cachePath)) {
+                        remotePath = match.path.replace(cachePath, originalPath);
+                        break;
+                    }
+                }
+                
+                return {
+                    ...match,
+                    path: remotePath,
+                    cache_path: match.path
+                };
+            }),
             cache_info: {
                 cacheKey: cacheStatus.cacheKey,
                 lastSync: cacheStatus.lastSync,
-                isExpired: cacheStatus.isExpired
+                isExpired: cacheStatus.isExpired,
+                pathMappings: cacheStatus.pathMappings
             }
         };
         
@@ -298,11 +325,12 @@ router.post('/unlock', validateRequest(RemoteSyncRequestSchema), async (req, res
 
     try {
         const validated = req.validatedBody;
-        const { ssh_connection, remote_path, sync_options } = validated;
+        const { ssh_connection, directories, files, sync_options } = validated;
         
-        const unlocked = remoteSyncService.forceUnlock(
+        const unlocked = remoteSyncService.forceUnlockMultiplePaths(
             ssh_connection,
-            remote_path,
+            directories,
+            files,
             sync_options
         );
         

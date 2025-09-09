@@ -41,6 +41,43 @@ export class CacheStorage {
     }
 
     /**
+     * Écrit les informations d'étendue d'un cache
+     * @param {string} cacheKey - Clé de cache
+     * @param {Object} cacheInfo - Informations du cache
+     */
+    writeCacheInfo(cacheKey, cacheInfo) {
+        const cachePath = this.getCachePath(cacheKey);
+        const infoPath = path.join(cachePath, '.cache_info.json');
+        
+        try {
+            fs.writeFileSync(infoPath, JSON.stringify(cacheInfo, null, 2));
+            logger.debug(`Cache info saved: ${infoPath}`);
+        } catch (e) {
+            logger.warning(`Unable to write cache info for ${cacheKey}: ${e.message}`);
+        }
+    }
+    
+    /**
+     * Lit les informations d'étendue d'un cache
+     * @param {string} cacheKey - Clé de cache
+     * @returns {Object|null} Informations du cache ou null
+     */
+    readCacheInfo(cacheKey) {
+        const cachePath = this.getCachePath(cacheKey);
+        const infoPath = path.join(cachePath, '.cache_info.json');
+        
+        try {
+            if (fs.existsSync(infoPath)) {
+                return JSON.parse(fs.readFileSync(infoPath, 'utf8'));
+            }
+        } catch (e) {
+            logger.warning(`Unable to read cache info for ${cacheKey}: ${e.message}`);
+        }
+        
+        return null;
+    }
+    
+    /**
      * Met à jour le timestamp de dernière synchronisation
      * @param {string} cacheKey - Clé de cache
      */

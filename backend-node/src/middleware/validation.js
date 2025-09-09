@@ -36,7 +36,11 @@ export const AdvancedCopyRequestSchema = Joi.object({
 // Schéma pour les requêtes de synchronisation distante
 export const RemoteSyncRequestSchema = Joi.object({
     ssh_connection: SSHConnectionSchema.required(),
-    remote_path: Joi.string().required().min(1),
+    // Support des chemins multiples : répertoires ET fichiers spécifiques
+    directories: Joi.array().items(Joi.string().min(1)).default([]),
+    files: Joi.array().items(Joi.string().min(1)).default([]),
+    // Maintien de la compatibilité ascendante avec remote_path
+    remote_path: Joi.string().optional(),
     sync_options: Joi.object({
         recursive: Joi.boolean().default(true),
         excludePatterns: Joi.array().items(Joi.string()).default([]),
@@ -44,13 +48,54 @@ export const RemoteSyncRequestSchema = Joi.object({
         excludeDirectories: Joi.array().items(Joi.string()).default([])
     }).default({}),
     allowExpired: Joi.boolean().default(false)
+}).custom((value, helpers) => {
+    // Validation : au moins un chemin requis
+    const hasPaths = (value.directories && value.directories.length > 0) || 
+                     (value.files && value.files.length > 0) ||
+                     (value.remote_path && value.remote_path.length > 0);
+    
+    if (!hasPaths) {
+        return helpers.error('custom.atLeastOnePath', { 
+            message: 'Au moins un répertoire, fichier ou remote_path doit être spécifié' 
+        });
+    }
+
+    // Migration automatique : remote_path → directories[0]
+    if (value.remote_path && (!value.directories || value.directories.length === 0)) {
+        value.directories = [value.remote_path];
+        delete value.remote_path;
+    }
+    
+    return value;
 });
 
 // Schéma pour le statut de cache
 export const CacheStatusRequestSchema = Joi.object({
     ssh_connection: SSHConnectionSchema.required(),
-    remote_path: Joi.string().required().min(1),
+    // Support des chemins multiples
+    directories: Joi.array().items(Joi.string().min(1)).default([]),
+    files: Joi.array().items(Joi.string().min(1)).default([]),
+    // Maintien de la compatibilité ascendante
+    remote_path: Joi.string().optional(),
     sync_options: Joi.object().default({})
+}).custom((value, helpers) => {
+    // Validation et migration identique au schéma RemoteSyncRequestSchema
+    const hasPaths = (value.directories && value.directories.length > 0) || 
+                     (value.files && value.files.length > 0) ||
+                     (value.remote_path && value.remote_path.length > 0);
+    
+    if (!hasPaths) {
+        return helpers.error('custom.atLeastOnePath', { 
+            message: 'Au moins un répertoire, fichier ou remote_path doit être spécifié' 
+        });
+    }
+
+    if (value.remote_path && (!value.directories || value.directories.length === 0)) {
+        value.directories = [value.remote_path];
+        delete value.remote_path;
+    }
+    
+    return value;
 });
 
 // Schéma pour le test de connexion SSH

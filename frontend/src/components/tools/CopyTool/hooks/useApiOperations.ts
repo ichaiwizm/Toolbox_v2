@@ -26,12 +26,9 @@ export function useApiOperations() {
       
       if (isRemoteMode && selectedSSHConnection) {
         // Mode distant : synchroniser puis scanner
-        if (config.directories.length === 0) {
-          throw new Error("Veuillez spécifier au moins un chemin distant");
+        if (config.directories.length === 0 && config.files.length === 0) {
+          throw new Error("Veuillez spécifier au moins un chemin distant (répertoire ou fichier)");
         }
-        
-        // Utiliser le premier répertoire comme chemin distant
-        const remotePath = config.directories[0];
         
         // Créer les options de sync à partir de la config
         const syncOptions = {
@@ -41,13 +38,28 @@ export function useApiOperations() {
           excludeDirectories: config.excludeDirectories
         };
         
-        // Synchroniser d'abord
-        await copyToolApi.syncRemote(selectedSSHConnection, remotePath, syncOptions);
+        // Synchroniser d'abord avec chemins multiples
+        await copyToolApi.syncRemote(
+          selectedSSHConnection, 
+          config.directories, 
+          config.files, 
+          syncOptions
+        );
         
-        // Puis scanner et formater
+        // Puis scanner et formater avec chemins multiples
         const [scanResult, formattedContent] = await Promise.all([
-          copyToolApi.scanRemoteFiles(selectedSSHConnection, remotePath, syncOptions),
-          copyToolApi.formatRemoteContent(selectedSSHConnection, remotePath, syncOptions)
+          copyToolApi.scanRemoteFiles(
+            selectedSSHConnection, 
+            config.directories, 
+            config.files, 
+            syncOptions
+          ),
+          copyToolApi.formatRemoteContent(
+            selectedSSHConnection, 
+            config.directories, 
+            config.files, 
+            syncOptions
+          )
         ]);
         
         // Calculer les stats

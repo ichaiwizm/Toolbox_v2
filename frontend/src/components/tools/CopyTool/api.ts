@@ -59,9 +59,14 @@ const apiLogger = {
  */
 export const copyToolApi = {
   /**
-   * Débloquer un cache verrouillé
+   * Débloquer un cache verrouillé (chemins multiples)
    */
-  async unlockRemote(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<any> {
+  async unlockRemote(
+    sshConnection: SSHConnection, 
+    directories: string[], 
+    files: string[], 
+    syncOptions?: any
+  ): Promise<any> {
     const payload = {
       ssh_connection: {
         host: sshConnection.host,
@@ -69,7 +74,8 @@ export const copyToolApi = {
         username: sshConnection.username,
         password: sshConnection.password
       },
-      remote_path: remotePath,
+      directories: directories || [],
+      files: files || [],
       sync_options: syncOptions || { recursive: true }
     };
     
@@ -87,10 +93,16 @@ export const copyToolApi = {
   },
   
   /**
-   * Synchroniser les fichiers distants vers le cache local
+   * Synchroniser les fichiers distants vers le cache local (chemins multiples)
    */
-  async syncRemote(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<any> {
-    apiLogger.info(`Synchronisation distante: ${sshConnection.host}:${remotePath}`);
+  async syncRemote(
+    sshConnection: SSHConnection, 
+    directories: string[], 
+    files: string[], 
+    syncOptions?: any
+  ): Promise<any> {
+    const pathSummary = `${directories.length} dirs + ${files.length} files`;
+    apiLogger.info(`Synchronisation distante: ${sshConnection.host} (${pathSummary})`);
     
     const payload = {
       ssh_connection: {
@@ -99,7 +111,8 @@ export const copyToolApi = {
         username: sshConnection.username,
         password: sshConnection.password
       },
-      remote_path: remotePath,
+      directories: directories || [],
+      files: files || [],
       sync_options: syncOptions || { recursive: true }
     };
     
@@ -117,7 +130,7 @@ export const copyToolApi = {
         apiLogger.info('Tentative de déblocage automatique...');
         
         try {
-          await this.unlockRemote(sshConnection, remotePath, syncOptions);
+          await this.unlockRemote(sshConnection, directories, files, syncOptions);
           // Réessayer la synchronisation une seule fois
           const retryData = await apiRequest(API_URLS.REMOTE.SYNC, {
             method: "POST",
@@ -138,10 +151,16 @@ export const copyToolApi = {
   },
   
   /**
-   * Scanner les fichiers en mode distant (depuis le cache)
+   * Scanner les fichiers en mode distant (depuis le cache) avec chemins multiples
    */
-  async scanRemoteFiles(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<{ matches: FileMatch[]; totalMatches: number; totalSubdirectories: number }> {
-    apiLogger.info(`Scan distant: ${sshConnection.host}:${remotePath}`);
+  async scanRemoteFiles(
+    sshConnection: SSHConnection, 
+    directories: string[], 
+    files: string[], 
+    syncOptions?: any
+  ): Promise<{ matches: FileMatch[]; totalMatches: number; totalSubdirectories: number }> {
+    const pathSummary = `${directories.length} dirs + ${files.length} files`;
+    apiLogger.info(`Scan distant: ${sshConnection.host} (${pathSummary})`);
     
     const payload = {
       ssh_connection: {
@@ -150,7 +169,8 @@ export const copyToolApi = {
         username: sshConnection.username,
         password: sshConnection.password
       },
-      remote_path: remotePath,
+      directories: directories || [],
+      files: files || [],
       sync_options: syncOptions || { recursive: true },
       allowExpired: false
     };
@@ -175,10 +195,16 @@ export const copyToolApi = {
   },
   
   /**
-   * Formater le contenu en mode distant
+   * Formater le contenu en mode distant avec chemins multiples
    */
-  async formatRemoteContent(sshConnection: SSHConnection, remotePath: string, syncOptions?: any): Promise<string> {
-    apiLogger.info(`Formatage distant: ${sshConnection.host}:${remotePath}`);
+  async formatRemoteContent(
+    sshConnection: SSHConnection, 
+    directories: string[], 
+    files: string[], 
+    syncOptions?: any
+  ): Promise<string> {
+    const pathSummary = `${directories.length} dirs + ${files.length} files`;
+    apiLogger.info(`Formatage distant: ${sshConnection.host} (${pathSummary})`);
     
     const payload = {
       ssh_connection: {
@@ -187,7 +213,8 @@ export const copyToolApi = {
         username: sshConnection.username,
         password: sshConnection.password
       },
-      remote_path: remotePath,
+      directories: directories || [],
+      files: files || [],
       sync_options: syncOptions || { recursive: true },
       allowExpired: false
     };

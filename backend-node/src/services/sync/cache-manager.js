@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { getLogger } from '../../utils/logger.js';
 import { 
   CacheKeyGenerator, 
@@ -21,14 +22,43 @@ export class CacheManager {
     }
     
     /**
-     * Génère une clé de cache unique basée sur la configuration
+     * Génère une clé de cache pour des chemins multiples
      * @param {Object} sshConnection - Configuration SSH
-     * @param {string} remotePath - Chemin distant
+     * @param {string[]} directories - Répertoires distants
+     * @param {string[]} files - Fichiers spécifiques distants
      * @param {Object} syncOptions - Options de synchronisation
      * @returns {string} Clé de cache
      */
+    generateMultiplePathsCacheKey(sshConnection, directories = [], files = [], syncOptions = {}) {
+        return CacheKeyGenerator.generateMultiplePathsCacheKey(sshConnection, directories, files, syncOptions);
+    }
+    
+    /**
+     * Prépare un répertoire de cache pour une clé donnée
+     * @param {string} cacheKey - Clé de cache
+     * @returns {string} Chemin du cache préparé
+     */
+    prepareCacheDirectory(cacheKey) {
+        return this.storage.prepareCacheDirectory(cacheKey);
+    }
+    
+    /**
+     * LEGACY: Génère une clé de cache unique pour un chemin
+     * Maintenu pour compatibilité ascendante
+     */
     generateCacheKey(sshConnection, remotePath, syncOptions = {}) {
         return CacheKeyGenerator.generateCacheKey(sshConnection, remotePath, syncOptions);
+    }
+    
+    /**
+     * Génère un chemin de cache spécifique pour un chemin donné
+     * @param {string} baseCachePath - Chemin de cache de base
+     * @param {string} remotePath - Chemin distant
+     * @returns {string} Chemin de cache spécifique
+     */
+    generatePathSpecificCache(baseCachePath, remotePath) {
+        const sanitized = remotePath.replace(/[\/\\]/g, '_').replace(/:/g, '-');
+        return path.join(baseCachePath, sanitized);
     }
     
     /**
@@ -80,6 +110,77 @@ export class CacheManager {
         }
         
         return status;
+    }
+    
+    /**
+     * Lit les informations d'étendue d'un cache
+     * @param {string} cacheKey - Clé de cache
+     * @returns {Object|null} Informations du cache
+     */
+    getCacheInfo(cacheKey) {
+        return this.storage.readCacheInfo(cacheKey);
+    }
+    
+    /**
+     * Sauvegarde les informations d'étendue d'un cache
+     * @param {string} cacheKey - Clé de cache
+     * @param {Object} cacheInfo - Informations à sauvegarder
+     */
+    saveCacheInfo(cacheKey, cacheInfo) {
+        this.storage.writeCacheInfo(cacheKey, cacheInfo);
+    }
+    
+    /**
+     * Vérifie si un cache est verrouillé
+     * @param {string} cacheKey - Clé de cache
+     * @returns {boolean} True si verrouillé
+     */
+    isLocked(cacheKey) {
+        return this.lockManager.isLocked(cacheKey);
+    }
+    
+    /**
+     * Crée un verrou pour un cache
+     * @param {string} cacheKey - Clé de cache
+     * @param {string} syncId - ID de synchronisation
+     * @returns {string} Chemin du fichier de verrou
+     */
+    createLock(cacheKey, syncId) {
+        return this.lockManager.createLock(cacheKey, syncId);
+    }
+    
+    /**
+     * Supprime un verrou pour un cache
+     * @param {string} cacheKey - Clé de cache
+     */
+    removeLock(cacheKey) {
+        this.lockManager.removeLock(cacheKey);
+    }
+    
+    /**
+     * Force le déblocage d'un cache
+     * @param {string} cacheKey - Clé de cache
+     * @returns {boolean} True si un verrou a été supprimé
+     */
+    forceUnlock(cacheKey) {
+        return this.lockManager.forceUnlock(cacheKey);
+    }
+    
+    /**
+     * Nettoie les caches expirés
+     * @param {number} maxAgeHours - Âge maximum en heures
+     * @returns {Promise<Object>} Résultat du nettoyage
+     */
+    async cleanupExpiredCaches(maxAgeHours = 72) {
+        return this.cleanupManager.cleanupExpiredCaches(maxAgeHours);
+    }
+    
+    /**
+     * Supprime complètement un cache
+     * @param {string} cacheKey - Clé de cache
+     */
+    removeCache(cacheKey) {
+        this.storage.removeCache(cacheKey);
     }
     
     /**
