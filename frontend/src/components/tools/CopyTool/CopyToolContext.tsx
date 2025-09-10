@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useContext, ReactNode } from "react";
-import { CopyConfig, CopyResult, createEmptyConfig, SSHConnection, FormInputs } from "./types";
+import { CopyConfig, CopyResult, createEmptyConfig, FormInputs } from "./types";
+import { SSHConnection } from "@/types/global";
 import { useHistoryManager } from "./useHistoryManager";
 import { useTabs } from "@/contexts/TabsContext";
 import { 

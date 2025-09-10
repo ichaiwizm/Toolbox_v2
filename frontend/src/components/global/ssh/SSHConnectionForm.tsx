@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { SSHConnection } from "../../types";
+import { SSHConnection } from "@/types/global";
 import { TestResult } from "./services/sshTestService";
 
 interface SSHConnectionFormProps {

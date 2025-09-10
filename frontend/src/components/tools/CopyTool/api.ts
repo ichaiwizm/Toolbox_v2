@@ -1,4 +1,5 @@
-import { CopyResult, FileMatch, FileStats, ScanRequestPayload, SSHConnection } from './types';
+import { CopyResult, FileMatch, FileStats, ScanRequestPayload } from './types';
+import { SSHConnection } from '@/types/global';
 import { API_URLS, apiRequest } from '@/config/api';
 
 /**

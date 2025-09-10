@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { CopyConfig, CopyResult, SSHConnection } from "../types";
+import { CopyConfig, CopyResult } from "../types";
+import { SSHConnection } from "@/types/global";
 import { copyToolApi } from "../api";
 import { createApiPayload } from "../utils";
 

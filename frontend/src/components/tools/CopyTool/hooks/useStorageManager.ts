@@ -1,4 +1,5 @@
-import { CopyConfig, CopyResult, SSHConnection, FormInputs } from "../types";
+import { CopyConfig, CopyResult, FormInputs } from "../types";
+import { SSHConnection } from "@/types/global";
 import { PersistedTab, TabMetadata } from "@/contexts/TabsContext";
 
 // Clés de stockage local pour l'état de l'outil

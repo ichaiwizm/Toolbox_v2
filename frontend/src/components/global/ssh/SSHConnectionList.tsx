@@ -2,20 +2,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Server, Trash2, Edit2, Loader2, CheckCircle, XCircle } from "lucide-react";
-import { SSHConnection, createEmptySSHConnection } from "../../types";
+import { Server, Trash2, Edit2, Loader2 } from "lucide-react";
+import { SSHConnection } from "@/types/global";
 import { TestResult } from "./services/sshTestService";
 
 interface SSHConnectionListProps {
   connections: SSHConnection[];
-  selectedConnection: SSHConnection | null;
+  selectedConnection?: SSHConnection | null;
   testing: boolean;
-  testResult: TestResult | null;
-  onSelectConnection: (conn: SSHConnection) => void;
+  testResult?: TestResult | null;
+  onSelectConnection?: (conn: SSHConnection) => void;
   onTestConnection: (conn: SSHConnection) => void;
   onEditConnection: (conn: SSHConnection) => void;
   onDeleteConnection: (id: string) => void;
   onCreateNew: () => void;
+  // Mode global - pas de sélection
+  globalMode?: boolean;
 }
 
 export function SSHConnectionList({
@@ -27,7 +29,8 @@ export function SSHConnectionList({
   onTestConnection,
   onEditConnection,
   onDeleteConnection,
-  onCreateNew
+  onCreateNew,
+  globalMode = false
 }: SSHConnectionListProps) {
   if (connections.length === 0) {
     return (
@@ -45,28 +48,12 @@ export function SSHConnectionList({
   }
 
   return (
-    <>
-      {/* Message de test global */}
-      {testResult && (
-        <div className={`flex items-center gap-3 p-4 rounded-lg border ${
-          testResult.success 
-            ? 'bg-green-50 border-green-200 text-green-800' 
-            : 'bg-red-50 border-red-200 text-red-800'
-        }`}>
-          {testResult.success ? (
-            <CheckCircle className="w-5 h-5 flex-shrink-0" />
-          ) : (
-            <XCircle className="w-5 h-5 flex-shrink-0" />
-          )}
-          <span className="text-sm font-medium">{testResult.message}</span>
-        </div>
-      )}
-
+    <div className="space-y-4">
       <ScrollArea className="h-[400px] pr-2">
         <div className="space-y-3">
           {connections.map((conn) => (
             <Card key={conn.id} className={`transition-all hover:shadow-md ${
-              selectedConnection?.id === conn.id 
+              !globalMode && selectedConnection?.id === conn.id 
                 ? 'ring-2 ring-primary bg-primary/5' 
                 : ''
             }`}>
@@ -75,7 +62,7 @@ export function SSHConnectionList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-3">
                       <h4 className="font-semibold text-base truncate">{conn.name}</h4>
-                      {selectedConnection?.id === conn.id && (
+                      {!globalMode && selectedConnection?.id === conn.id && (
                         <Badge variant="default" className="text-xs px-2 py-1">
                           Active
                         </Badge>
@@ -98,21 +85,23 @@ export function SSHConnectionList({
                   </div>
                   
                   <div className="flex flex-col gap-2 ml-4">
-                    <Button
-                      size="sm"
-                      onClick={() => onSelectConnection(conn)}
-                      disabled={testing}
-                      className="w-28 h-10"
-                    >
-                      {testing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Test...
-                        </>
-                      ) : (
-                        "Sélectionner"
-                      )}
-                    </Button>
+                    {!globalMode && onSelectConnection && (
+                      <Button
+                        size="sm"
+                        onClick={() => onSelectConnection(conn)}
+                        disabled={testing}
+                        className="w-28 h-10"
+                      >
+                        {testing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Test...
+                          </>
+                        ) : (
+                          "Sélectionner"
+                        )}
+                      </Button>
+                    )}
                     <div className="flex gap-1">
                       <Button
                         size="sm"
@@ -147,6 +136,10 @@ export function SSHConnectionList({
           ))}
         </div>
       </ScrollArea>
-    </>
+      
+      <Button onClick={onCreateNew} className="w-full">
+        Ajouter une nouvelle connexion
+      </Button>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { useTabs } from '@/contexts/TabsContext';
-import { Activity, X } from 'lucide-react';
+import { Activity, X, Server } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TabBar } from './TabBar';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -10,6 +10,8 @@ import { BackupTool } from '@/components/tools/BackupTool';
 import { AiStructureTool } from '@/components/tools/AiStructureTool';
 import { ProjectAnalysisTool } from '@/components/tools/ProjectAnalysisTool';
 import { WinMergeTool } from '@/components/tools/WinMergeTool';
+import { SSHConfigModal } from '@/components/global/ssh';
+import { useSSH } from '@/contexts/SSHContext';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -27,15 +29,23 @@ const toolComponents = {
 
 export function Layout({ children }: LayoutProps) {
   const { tabs, activeTab } = useTabs();
+  const { connections } = useSSH();
   const [isLoading, setIsLoading] = useState(false);
   const [showTestResults, setShowTestResults] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, any> | null>(null);
+  const [showSSHConfig, setShowSSHConfig] = useState(false);
   
   // Trouver l'onglet actif
   const currentTab = tabs.find(tab => tab.id === activeTab);
   
   // Déterminer quel composant afficher
   const ActiveComponent = currentTab ? toolComponents[currentTab.type] : Dashboard;
+  
+  // Déterminer s'il y a des connexions SSH disponibles
+  const hasSSHConnections = connections.length > 0;
+  const sshTooltipText = hasSSHConnections 
+    ? `Configuration SSH (${connections.length} connexion${connections.length > 1 ? 's' : ''})` 
+    : "Configuration SSH (aucune connexion configurée)";
 
   // Fonction pour tester toutes les APIs
   const testAllApis = async () => {
@@ -70,6 +80,19 @@ export function Layout({ children }: LayoutProps) {
         <h1 className="text-xl font-bold">Toolbox</h1>
         
         <div className="flex items-center space-x-2 w-32 justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSSHConfig(true)}
+            title={sshTooltipText}
+            className="relative transition-all duration-200 hover:bg-secondary"
+          >
+            <Server className="h-4 w-4" />
+            {/* Indicateur de statut */}
+            <div className={`absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
+              hasSSHConnections ? 'bg-green-500' : 'bg-gray-400'
+            }`} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -139,6 +162,12 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
       )}
+      
+      {/* Modal de configuration SSH globale */}
+      <SSHConfigModal 
+        open={showSSHConfig} 
+        onClose={() => setShowSSHConfig(false)} 
+      />
     </div>
   );
 } 

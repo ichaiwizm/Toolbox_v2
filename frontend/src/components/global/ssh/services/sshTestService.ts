@@ -1,4 +1,4 @@
-import { SSHConnection } from "../../../types";
+import { SSHConnection } from "@/types/global";
 
 export interface TestResult {
   success: boolean;

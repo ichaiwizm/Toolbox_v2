@@ -5,5 +5,4 @@ export * from './InputWithButton';
 export * from './ItemList';
 export * from './StatsDisplay';
 export * from './ExtensionStats';
-export * from './FileList';
-export * from './SSHConfigModal'; 
+export * from './FileList'; 

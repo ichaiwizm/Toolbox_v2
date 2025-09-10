@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { TabsProvider } from './contexts/TabsContext';
+import { SSHProvider } from './contexts/SSHContext';
 import { Layout } from './components/layout/Layout';
 import { StorageManager } from './components/tools/CopyTool/hooks/useStorageManager';
 
@@ -26,9 +27,11 @@ function App() {
 
   return (
     <ThemeProvider>
-      <TabsProvider>
-        <Layout />
-      </TabsProvider>
+      <SSHProvider>
+        <TabsProvider>
+          <Layout />
+        </TabsProvider>
+      </SSHProvider>
     </ThemeProvider>
   );
 }

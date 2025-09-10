@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { SSHConnection } from "../../../types";
+import { useState, useCallback } from "react";
+import { SSHConnection } from "@/types/global";
 import { SSHTestService, TestResult } from "../services/sshTestService";
 
 /**
@@ -10,17 +10,17 @@ export function useSSHTest() {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   // Tester une connexion (sans sélection)
-  const testConnection = async (connection: SSHConnection) => {
+  const testConnection = useCallback(async (connection: SSHConnection) => {
     setTesting(true);
     setTestResult(null);
     
     const result = await SSHTestService.testConnection(connection);
     setTestResult(result);
     setTesting(false);
-  };
+  }, []);
 
   // Sélectionner une connexion (avec test puis fermeture si succès)
-  const selectConnection = async (
+  const selectConnection = useCallback(async (
     connection: SSHConnection,
     onSelectConnection: (conn: SSHConnection) => void,
     onClose: () => void
@@ -37,17 +37,18 @@ export function useSSHTest() {
     setTesting(false);
 
     if (result.success) {
+      // Laisser le temps à l'utilisateur de voir le succès avant fermeture
       setTimeout(() => {
         onClose();
         setTestResult(null);
-      }, 1500);
+      }, 2000);
     }
-  };
+  }, []);
 
   // Réinitialiser les résultats de test
-  const resetTestResult = () => {
+  const resetTestResult = useCallback(() => {
     setTestResult(null);
-  };
+  }, []);
 
   return {
     testing,

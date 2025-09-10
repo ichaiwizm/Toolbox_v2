@@ -11,7 +11,7 @@ export interface CopyConfig {
   isFavorite?: boolean;
   // Informations mode distant
   isRemoteMode?: boolean;
-  sshConnection?: SSHConnection;
+  sshConnection?: import('@/types/global').SSHConnection;
 }
 
 export interface FormInputs {
@@ -116,18 +116,6 @@ export const DEFAULT_EXCLUDED_PATTERNS = [
   ".last_sync.json"
 ];
 
-// Types pour les connexions SSH
-export interface SSHConnection {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  username: string;
-  password?: string;
-  savePassword: boolean;
-  timestamp: number;
-}
-
 // Fonction pour créer une configuration vide
 export const createEmptyConfig = (): CopyConfig => ({
   id: crypto.randomUUID(),
@@ -141,14 +129,4 @@ export const createEmptyConfig = (): CopyConfig => ({
   isFavorite: false
 });
 
-// Fonction pour créer une connexion SSH vide
-export const createEmptySSHConnection = (): SSHConnection => ({
-  id: crypto.randomUUID(),
-  name: '',
-  host: '',
-  port: 22,
-  username: '',
-  password: '',
-  savePassword: false,
-  timestamp: Date.now()
-}); 
+ 
