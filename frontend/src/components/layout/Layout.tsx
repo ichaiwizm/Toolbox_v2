@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { useTabs } from '@/contexts/TabsContext';
-import { Activity, X, Server } from 'lucide-react';
+import { Activity, X, Server, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TabBar } from './TabBar';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -11,6 +11,7 @@ import { AiStructureTool } from '@/components/tools/AiStructureTool';
 import { ProjectAnalysisTool } from '@/components/tools/ProjectAnalysisTool';
 import { WinMergeTool } from '@/components/tools/WinMergeTool';
 import { SSHConfigModal } from '@/components/global/ssh';
+import { SmartAutoConfigModal } from '@/components/global/smartauto';
 import { useSSH } from '@/contexts/SSHContext';
 
 interface LayoutProps {
@@ -34,6 +35,7 @@ export function Layout({ children }: LayoutProps) {
   const [showTestResults, setShowTestResults] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, any> | null>(null);
   const [showSSHConfig, setShowSSHConfig] = useState(false);
+  const [showSmartAutoConfig, setShowSmartAutoConfig] = useState(false);
   
   // Trouver l'onglet actif
   const currentTab = tabs.find(tab => tab.id === activeTab);
@@ -79,7 +81,7 @@ export function Layout({ children }: LayoutProps) {
         
         <h1 className="text-xl font-bold">Toolbox</h1>
         
-        <div className="flex items-center space-x-2 w-32 justify-end">
+        <div className="flex items-center space-x-2 w-40 justify-end">
           <Button
             variant="ghost"
             size="icon"
@@ -92,6 +94,15 @@ export function Layout({ children }: LayoutProps) {
             <div className={`absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
               hasSSHConnections ? 'bg-green-500' : 'bg-gray-400'
             }`} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSmartAutoConfig(true)}
+            title="Configuration Smart Auto - Analyse intelligente des fichiers"
+            className="transition-all duration-200 hover:bg-secondary"
+          >
+            <Sparkles className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -167,6 +178,12 @@ export function Layout({ children }: LayoutProps) {
       <SSHConfigModal 
         open={showSSHConfig} 
         onClose={() => setShowSSHConfig(false)} 
+      />
+      
+      {/* Modal de configuration Smart Auto */}
+      <SmartAutoConfigModal
+        open={showSmartAutoConfig}
+        onClose={() => setShowSmartAutoConfig(false)}
       />
     </div>
   );

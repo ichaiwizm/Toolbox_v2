@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 
@@ -179,12 +179,16 @@ function ConfigPanelContent() {
           />
           
           <div>
-            <Label className="text-xs mb-1 block">Dossiers sélectionnés</Label>
             <ItemList 
               items={config.directories} 
               onRemove={(index) => removeItem("directories", index)} 
               emptyMessage="Aucun dossier sélectionné"
               onEdit={(index, newValue) => editItem("directories", index, newValue)}
+              title="Dossiers sélectionnés"
+              type="folders"
+              onClearAll={() => {
+                config.directories.forEach(() => removeItem("directories", 0));
+              }}
             />
           </div>
           
@@ -216,12 +220,16 @@ function ConfigPanelContent() {
           />
           
           <div>
-            <Label className="text-xs mb-1 block">Fichiers sélectionnés</Label>
             <ItemList 
               items={config.files} 
               onRemove={(index) => removeItem("files", index)} 
               emptyMessage="Aucun fichier sélectionné"
               onEdit={(index, newValue) => editItem("files", index, newValue)}
+              title="Fichiers sélectionnés"
+              type="files"
+              onClearAll={() => {
+                config.files.forEach(() => removeItem("files", 0));
+              }}
             />
           </div>
         </div>
@@ -256,6 +264,8 @@ function ConfigPanelContent() {
                     onRemove={(index) => removeItem("excludeExtensions", index)} 
                     maxHeight="100px"
                     onEdit={(index, newValue) => editItem("excludeExtensions", index, newValue)}
+                    emptyMessage="Aucune extension exclue"
+                    type="files"
                   />
                 </AccordionContent>
               </AccordionItem>
@@ -284,6 +294,8 @@ function ConfigPanelContent() {
                     onRemove={(index) => removeItem("excludePatterns", index)} 
                     maxHeight="100px"
                     onEdit={(index, newValue) => editItem("excludePatterns", index, newValue)}
+                    emptyMessage="Aucun motif exclu"
+                    type="files"
                   />
                 </AccordionContent>
               </AccordionItem>
@@ -312,6 +324,8 @@ function ConfigPanelContent() {
                     onRemove={(index) => removeItem("excludeDirectories", index)} 
                     maxHeight="100px"
                     onEdit={(index, newValue) => editItem("excludeDirectories", index, newValue)}
+                    emptyMessage="Aucun dossier exclu"
+                    type="folders"
                   />
                 </AccordionContent>
               </AccordionItem>
