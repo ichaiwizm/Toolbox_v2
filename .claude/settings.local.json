@@ -3,7 +3,8 @@
     "allow": [
       "Read(//mnt/c/Users/**)",
       "Bash(npm run build:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
