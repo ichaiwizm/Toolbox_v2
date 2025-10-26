@@ -7,6 +7,7 @@ import { getLogger } from './utils/logger.js';
 import copyRoutes from './routes/copy.js';
 import sshRoutes from './routes/ssh.js';
 import remoteRoutes from './routes/remote.js';
+import smartautoRoutes from './routes/smartauto.js';
 
 const logger = getLogger('toolbox.api');
 
@@ -53,7 +54,8 @@ function createApp() {
             endpoints: [
                 '/api/v1/copy',
                 '/api/v1/ssh',
-                '/api/v1/remote'
+                '/api/v1/remote',
+                '/api/v1/smartauto'
             ]
         });
     });
@@ -71,6 +73,7 @@ function createApp() {
     app.use(`${config.API_PREFIX}/copy`, copyRoutes);
     app.use(`${config.API_PREFIX}/ssh`, sshRoutes);
     app.use(`${config.API_PREFIX}/remote`, remoteRoutes);
+    app.use(`${config.API_PREFIX}/smartauto`, smartautoRoutes);
     
     // Route 404 pour les endpoints non trouvés
     app.use('*', (req, res) => {

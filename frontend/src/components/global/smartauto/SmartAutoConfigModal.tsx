@@ -52,16 +52,16 @@ export function SmartAutoConfigModal({ open, onClose }: SmartAutoConfigModalProp
 
             {/* Options */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-card opacity-60 cursor-not-allowed">
                 <div className="flex items-center gap-3 flex-1">
                   <Checkbox
                     id="git-files"
                     checked={gitFiles}
-                    onCheckedChange={(checked) => setGitFiles(checked as boolean)}
+                    disabled={true}
                   />
                   <GitBranch className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <Label htmlFor="git-files" className="font-medium">
+                    <Label htmlFor="git-files" className="font-medium cursor-not-allowed">
                       Fichiers modifiés (Git)
                     </Label>
                     <p className="text-xs text-muted-foreground">
@@ -69,21 +69,21 @@ export function SmartAutoConfigModal({ open, onClose }: SmartAutoConfigModalProp
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ces options seront configurables prochainement">
                   <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-card opacity-60 cursor-not-allowed">
                 <div className="flex items-center gap-3 flex-1">
                   <Checkbox
                     id="linked-files"
                     checked={linkedFiles}
-                    onCheckedChange={(checked) => setLinkedFiles(checked as boolean)}
+                    disabled={true}
                   />
                   <Layers className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <Label htmlFor="linked-files" className="font-medium">
+                    <Label htmlFor="linked-files" className="font-medium cursor-not-allowed">
                       Fichiers liés
                     </Label>
                     <p className="text-xs text-muted-foreground">
@@ -91,7 +91,7 @@ export function SmartAutoConfigModal({ open, onClose }: SmartAutoConfigModalProp
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ces options seront configurables prochainement">
                   <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </div>

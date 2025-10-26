@@ -1,3 +1,11 @@
+// SmartAuto metadata
+export interface SmartAutoMetadata {
+  depth: number; // 1, 2, 3
+  source: 'git' | 'files';
+  timestamp: number;
+  projectRoot?: string;
+}
+
 export interface CopyConfig {
   id: string;
   directories: string[];
@@ -12,6 +20,8 @@ export interface CopyConfig {
   // Informations mode distant
   isRemoteMode?: boolean;
   sshConnection?: import('@/types/global').SSHConnection;
+  // SmartAuto metadata
+  smartAuto?: SmartAutoMetadata;
 }
 
 export interface FormInputs {
